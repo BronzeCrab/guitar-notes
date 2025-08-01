@@ -1,8 +1,10 @@
 # Rust, Bevy based guitarist helper
 
-It can:
+This projects is aimed to help guitarists to convert any tabs to any tunning they want. It also can help beginner guitarists to learn notes, chords and experiment with different tunnings.
 
-- show all 6 strings with notes on different frets
+## Features
+
+- it can show all 6 strings with notes on different frets
 
 - by default standard tunning (`E A D G A E`)
 
@@ -10,4 +12,4 @@ It can:
 
 - you can change any string to any note you want, so you can make any tunning you want
 
-- can play each note on any string and fret
+- you can play each note on any string and fret
