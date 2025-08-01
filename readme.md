@@ -1,4 +1,4 @@
-# This Rust, Bevy based guitarist helper
+# Rust, Bevy based guitarist helper
 
 It can:
 
