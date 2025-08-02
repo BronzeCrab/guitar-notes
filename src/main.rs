@@ -3,10 +3,11 @@ use bevy::render::RenderPlugin;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::settings::*;
 
-const NOTES: [&'static str; 7] = ["A", "B", "aC", "D", "E", "F", "G"];
-const GAP: f32 = 100.0;
-const GREY: Color = Color::srgba(0.3, 0.3, 0.3, 1.0);
-const AMOUNT_OF_FRETS: u8 = 10;
+const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
+const GAP: f32 = 50.0;
+const GREY: Color = Color::srgba(0.6, 0.6, 0.6, 1.0);
+const AMOUNT_OF_FRETS: u8 = 22;
+const FONT_SIZE: f32 = 22.0;
 
 struct Tunning {
     name: &'static str,
@@ -50,7 +51,7 @@ fn setup(
         TextFont {
             // This font is loaded and will be used instead of the default font.
             // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 32.0,
+            font_size: FONT_SIZE,
             ..default()
         },
         // Set the justification of the Text
@@ -72,29 +73,27 @@ fn setup(
     let mut last_str_y: Option<f32> = None;
     // Рисуем горизонтальные линии - "струны":
     for i in 0..tunning.notes.len() {
-        let y_of_line: f32 = i as f32 * GAP / 2.0;
+        let y_of_line: f32 = i as f32 * GAP;
         if i == tunning.notes.len() - 1 {
             last_str_y = Some(y_of_line);
         }
         let vertices: Vec<[f32; 3]> =
             vec![[line_start_x, y_of_line, 0.0], [line_end_x, y_of_line, 0.0]];
-        // Создаём mesh линий
         let mut line_mesh: Mesh = Mesh::new(
             bevy::render::mesh::PrimitiveTopology::LineStrip,
             RenderAssetUsages::RENDER_WORLD,
         );
         line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-        // Создаём Entity с этим Mesh
         commands.spawn((
             Mesh2d(meshes.add(line_mesh)),
             MeshMaterial2d(materials.add(Color::WHITE)),
         ));
 
-        // Draw the NOTE name
+        // Draw the NOTE name of the open string
         commands.spawn((
             Text2d::new(tunning.notes[i]),
             TextFont {
-                font_size: 32.0,
+                font_size: FONT_SIZE,
                 ..default()
             },
             TextColor(Color::WHITE),
@@ -102,25 +101,55 @@ fn setup(
         ));
     }
 
+    // Рисуем вертикальные линии - "разделители ладов":
     if let Some(value) = last_str_y {
         let line_end_y: f32 = value + GAP / 2.0;
-        // Рисуем вертикальные линии - "разделители ладов":
         for i in 0..AMOUNT_OF_FRETS {
             let line_start_y: f32 = -GAP / 2.0;
             let x_of_line: f32 = line_start_x + i as f32 * GAP;
             let vertices: Vec<[f32; 3]> =
                 vec![[x_of_line, line_start_y, 0.0], [x_of_line, line_end_y, 0.0]];
-            // Создаём mesh линий
             let mut line_mesh: Mesh = Mesh::new(
                 bevy::render::mesh::PrimitiveTopology::LineStrip,
                 RenderAssetUsages::RENDER_WORLD,
             );
             line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-            // Создаём Entity с этим Mesh
             commands.spawn((
                 Mesh2d(meshes.add(line_mesh)),
                 MeshMaterial2d(materials.add(GREY)),
             ));
         }
+    }
+
+    let mut note_ind: usize = 5;
+    let mut x_of_note_name: f32 = line_start_x;
+    let y_of_note_name: f32 = -GAP;
+
+    for i in 0..AMOUNT_OF_FRETS - 1 {
+        if note_ind == 7 {
+            note_ind = 0;
+        }
+
+        let note: &'static str = NOTES[note_ind];
+
+        if i == 0 {
+            x_of_note_name += 0.5 * GAP;
+        } else if note == "C" || note == "F" {
+            x_of_note_name += GAP;
+        } else {
+            x_of_note_name += 2.0 * GAP;
+        }
+
+        commands.spawn((
+            Text2d::new(note),
+            TextFont {
+                font_size: FONT_SIZE,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Transform::from_xyz(x_of_note_name, y_of_note_name, 0.0),
+        ));
+
+        note_ind += 1;
     }
 }
