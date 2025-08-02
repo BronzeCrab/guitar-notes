@@ -3,6 +3,14 @@ use bevy::render::RenderPlugin;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::settings::*;
 
+const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
+const GAP: f32 = 100.0;
+
+struct Tunning {
+    name: &'static str,
+    notes: [&'static str; 6],
+}
+
 fn main() {
     App::new()
         .add_plugins((
@@ -28,6 +36,11 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
+    let tunning: Tunning = Tunning {
+        name: "standard",
+        notes: ["E", "A", "D", "G", "B", "E"],
+    };
+
     // Text with one section
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -52,13 +65,14 @@ fn setup(
     let window_height: f32 = window.height();
 
     // Рисуем горизонтальные линии "струны":
-    for i in 0..6 {
+    for i in 0..tunning.notes.len() {
+        let line_start: f32 = -window_width / 2.0 + GAP;
+        let line_end: f32 = window_width / 2.0 - GAP;
+
         // Координаты разделительной линии
         let y_of_line: f32 = i as f32 * 40.0;
-        let vertices: Vec<[f32; 3]> = vec![
-            [-window_width, y_of_line, 0.0],
-            [window_width, y_of_line, 0.0],
-        ];
+        let vertices: Vec<[f32; 3]> =
+            vec![[line_start, y_of_line, 0.0], [line_end, y_of_line, 0.0]];
         // Создаём mesh линий
         let mut line_mesh: Mesh = Mesh::new(
             bevy::render::mesh::PrimitiveTopology::LineStrip,
@@ -70,6 +84,17 @@ fn setup(
             Mesh2d(meshes.add(line_mesh)),
             MeshMaterial2d(materials.add(Color::WHITE)),
             Transform::from_xyz(0.0, 0.0, 0.0),
+        ));
+
+        // Draw the NOTE
+        commands.spawn((
+            Text2d::new(tunning.notes[i]),
+            TextFont {
+                font_size: 32.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Transform::from_xyz(line_start - GAP / 2.0, y_of_line, 0.0),
         ));
     }
 }
