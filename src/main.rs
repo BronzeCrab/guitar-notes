@@ -11,6 +11,16 @@ const AMOUNT_OF_FRETS: u8 = 22;
 const FONT_SIZE: f32 = 22.0;
 const RECT_SIZE: f32 = 30.0;
 
+const COLORS: [Color; 7] = [
+    Color::srgba(1.0, 0.0, 0.0, 1.0),      // Красный (Red)
+    Color::srgba(1.0, 0.5, 0.0, 1.0),      // Оранжевый (Orange)
+    Color::srgba(0.8, 0.7, 0.0, 1.0),      // Жёлтый (Yellow)
+    Color::srgba(0.0, 1.0, 0.0, 1.0),      // Зелёный (Green)
+    Color::srgba(0.0, 0.5, 1.0, 1.0),      // Голубой (Blue-green/Cyan)
+    Color::srgba(0.0, 0.0, 1.0, 1.0),      // Синий (Blue)
+    Color::srgba(0.5, 0.0, 1.0, 1.0),      // Фиолетовый (Purple/Violet)
+];
+
 struct Tunning {
     name: &'static str,
     notes: [&'static str; 6],
@@ -150,7 +160,7 @@ fn setup(
         commands
             .spawn((
                 Mesh2d(meshes.add(Rectangle::new(RECT_SIZE, RECT_SIZE))),
-                MeshMaterial2d(materials.add(ColorMaterial::from(CUSTOM_WHITE))),
+                MeshMaterial2d(materials.add(ColorMaterial::from(COLORS[note_ind]))),
                 Transform::from_xyz(x_of_note_name, y_of_note_name, 0.0),
                 Visibility::Visible,
                 NoteNameRectLabel { note_name: note },
