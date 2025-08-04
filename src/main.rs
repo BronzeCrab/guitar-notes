@@ -5,13 +5,20 @@ use bevy::render::settings::*;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
+const CUSTOM_WHITE: Color = Color::srgba(1.0, 1.0, 1.0, 0.5);
 const GREY: Color = Color::srgba(0.6, 0.6, 0.6, 1.0);
 const AMOUNT_OF_FRETS: u8 = 22;
 const FONT_SIZE: f32 = 22.0;
+const RECT_SIZE: f32 = 30.0;
 
 struct Tunning {
     name: &'static str,
     notes: [&'static str; 6],
+}
+
+#[derive(Component)]
+pub struct NoteNameRectLabel {
+    note_name: &'static str,
 }
 
 fn main() {
@@ -140,16 +147,37 @@ fn setup(
             x_of_note_name += 2.0 * GAP;
         }
 
-        commands.spawn((
-            Text2d::new(note),
-            TextFont {
-                font_size: FONT_SIZE,
-                ..default()
-            },
-            TextColor(Color::WHITE),
-            Transform::from_xyz(x_of_note_name, y_of_note_name, 0.0),
-        ));
+        commands
+            .spawn((
+                Mesh2d(meshes.add(Rectangle::new(RECT_SIZE, RECT_SIZE))),
+                MeshMaterial2d(materials.add(ColorMaterial::from(CUSTOM_WHITE))),
+                Transform::from_xyz(x_of_note_name, y_of_note_name, 0.0),
+                Visibility::Visible,
+                NoteNameRectLabel { note_name: note },
+                Pickable::default(),
+            ))
+            .with_child((
+                Text2d::new(note),
+                TextFont {
+                    font_size: FONT_SIZE,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Visibility::Visible,
+            ))
+            .observe(on_cirlce_click);
 
         note_ind += 1;
     }
+}
+
+fn on_cirlce_click(
+    click: Trigger<Pointer<Click>>,
+    mut commands: Commands,
+    mut note_name_rect_entity_q: Query<(Entity, &mut NoteNameRectLabel), With<NoteNameRectLabel>>,
+    children_query: Query<&Children>,
+) {
+    let atuple = note_name_rect_entity_q.get_mut(click.target).unwrap();
+    let note_name: &'static str = atuple.1.note_name;
+    println!("Click on note, {:?}", note_name);
 }
