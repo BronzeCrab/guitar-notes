@@ -119,13 +119,13 @@ fn setup(
     }
 
     // Рисуем вертикальные линии - "разделители ладов":
+    let mut vert_line_start_x: f32 = line_start_x + GAP / 2.0;
     if let Some(value) = last_str_y {
-        let line_end_y: f32 = value + GAP / 2.0;
-        for i in 0..AMOUNT_OF_FRETS {
-            let line_start_y: f32 = -GAP / 2.0;
-            let x_of_line: f32 = line_start_x + i as f32 * GAP;
+        let vert_line_start_y: f32 = -GAP / 2.0;
+        let vert_line_end_y: f32 = value + GAP / 2.0;
+        for _i in 0..12 {
             let vertices: Vec<[f32; 3]> =
-                vec![[x_of_line, line_start_y, 0.0], [x_of_line, line_end_y, 0.0]];
+                vec![[vert_line_start_x, vert_line_start_y, 0.0], [vert_line_start_x, vert_line_end_y, 0.0]];
             let mut line_mesh: Mesh = Mesh::new(
                 bevy::render::mesh::PrimitiveTopology::LineStrip,
                 RenderAssetUsages::RENDER_WORLD,
@@ -135,14 +135,15 @@ fn setup(
                 Mesh2d(meshes.add(line_mesh)),
                 MeshMaterial2d(materials.add(GREY)),
             ));
+            vert_line_start_x += GAP;
         }
     }
 
     let mut note_ind: usize = 5;
     let mut x_of_note_name: f32 = line_start_x;
-    let y_of_note_name: f32 = -GAP;
+    let y_of_note_name: f32 = 0.0;
 
-    for i in 0..AMOUNT_OF_FRETS - 1 {
+    for i in 0..12 {
         if note_ind == 7 {
             note_ind = 0;
         }
@@ -150,7 +151,7 @@ fn setup(
         let note: &'static str = NOTES[note_ind];
 
         if i == 0 {
-            x_of_note_name += 0.5 * GAP;
+            x_of_note_name += GAP;
         } else if note == "C" || note == "F" {
             x_of_note_name += GAP;
         } else {
