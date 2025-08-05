@@ -12,18 +12,24 @@ const FONT_SIZE: f32 = 22.0;
 const RECT_SIZE: f32 = 30.0;
 
 const COLORS: [Color; 7] = [
-    Color::srgba(1.0, 0.0, 0.0, 1.0),      // Красный (Red)
-    Color::srgba(1.0, 0.5, 0.0, 1.0),      // Оранжевый (Orange)
-    Color::srgba(0.8, 0.7, 0.0, 1.0),      // Жёлтый (Yellow)
-    Color::srgba(0.0, 1.0, 0.0, 1.0),      // Зелёный (Green)
-    Color::srgba(0.0, 0.5, 1.0, 1.0),      // Голубой (Blue-green/Cyan)
-    Color::srgba(0.0, 0.0, 1.0, 1.0),      // Синий (Blue)
-    Color::srgba(0.5, 0.0, 1.0, 1.0),      // Фиолетовый (Purple/Violet)
+    Color::srgba(1.0, 0.0, 0.0, 1.0), // Красный (Red)
+    Color::srgba(1.0, 0.5, 0.0, 1.0), // Оранжевый (Orange)
+    Color::srgba(0.8, 0.7, 0.0, 1.0), // Жёлтый (Yellow)
+    Color::srgba(0.0, 1.0, 0.0, 1.0), // Зелёный (Green)
+    Color::srgba(0.0, 0.5, 1.0, 1.0), // Голубой (Blue-green/Cyan)
+    Color::srgba(0.0, 0.0, 1.0, 1.0), // Синий (Blue)
+    Color::srgba(0.5, 0.0, 1.0, 1.0), // Фиолетовый (Purple/Violet)
 ];
+
+struct Note {
+    name: &'static str,
+    hz: f32,
+    octave: i8,
+}
 
 struct Tunning {
     name: &'static str,
-    notes: [&'static str; 6],
+    notes: [Note; 6],
 }
 
 #[derive(Component)]
@@ -58,7 +64,38 @@ fn setup(
 
     let tunning: Tunning = Tunning {
         name: "standard",
-        notes: ["E", "A", "D", "G", "B", "E"],
+        notes: [
+            Note {
+                name: "E",
+                hz: 329.6 / 4.0,
+                octave: 2,
+            },
+            Note {
+                name: "A",
+                hz: 440.0 / 4.0,
+                octave: 2,
+            },
+            Note {
+                name: "D",
+                hz: 293.7 / 2.0,
+                octave: 3,
+            },
+            Note {
+                name: "G",
+                hz: 392.0 / 2.0,
+                octave: 3,
+            },
+            Note {
+                name: "B",
+                hz: 493.9 / 2.0,
+                octave: 3,
+            },
+            Note {
+                name: "E",
+                hz: 329.6 / 1.0,
+                octave: 4,
+            },
+        ],
     };
 
     // Text with one section
@@ -108,7 +145,7 @@ fn setup(
 
         // Draw the NOTE name of the open string
         commands.spawn((
-            Text2d::new(tunning.notes[i]),
+            Text2d::new(tunning.notes[i].name),
             TextFont {
                 font_size: FONT_SIZE,
                 ..default()
@@ -124,8 +161,10 @@ fn setup(
         let vert_line_start_y: f32 = -GAP / 2.0;
         let vert_line_end_y: f32 = value + GAP / 2.0;
         for _i in 0..12 {
-            let vertices: Vec<[f32; 3]> =
-                vec![[vert_line_start_x, vert_line_start_y, 0.0], [vert_line_start_x, vert_line_end_y, 0.0]];
+            let vertices: Vec<[f32; 3]> = vec![
+                [vert_line_start_x, vert_line_start_y, 0.0],
+                [vert_line_start_x, vert_line_end_y, 0.0],
+            ];
             let mut line_mesh: Mesh = Mesh::new(
                 bevy::render::mesh::PrimitiveTopology::LineStrip,
                 RenderAssetUsages::RENDER_WORLD,
