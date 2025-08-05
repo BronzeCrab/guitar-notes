@@ -54,6 +54,10 @@ fn main() {
         .run();
 }
 
+fn get_note_hz_in_4_octave(half_tones_from_a: f32) -> f32 {
+    440.0 * 2_f32.powf(half_tones_from_a / 12.0)
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -67,32 +71,32 @@ fn setup(
         notes: [
             Note {
                 name: "E",
-                hz: 329.6 / 4.0,
+                hz: get_note_hz_in_4_octave(-5.0) / 4.0,
                 octave: 2,
             },
             Note {
                 name: "A",
-                hz: 440.0 / 4.0,
+                hz: get_note_hz_in_4_octave(0.0) / 4.0,
                 octave: 2,
             },
             Note {
                 name: "D",
-                hz: 293.7 / 2.0,
+                hz: get_note_hz_in_4_octave(-7.0) / 2.0,
                 octave: 3,
             },
             Note {
                 name: "G",
-                hz: 392.0 / 2.0,
+                hz: get_note_hz_in_4_octave(-2.0) / 2.0,
                 octave: 3,
             },
             Note {
                 name: "B",
-                hz: 493.9 / 2.0,
+                hz: get_note_hz_in_4_octave(2.0) / 2.0,
                 octave: 3,
             },
             Note {
                 name: "E",
-                hz: 329.6 / 1.0,
+                hz: get_note_hz_in_4_octave(-5.0) / 1.0,
                 octave: 4,
             },
         ],
