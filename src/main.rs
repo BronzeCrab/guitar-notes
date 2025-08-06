@@ -220,7 +220,7 @@ fn setup(
                 TextColor(Color::WHITE),
                 Visibility::Visible,
             ))
-            .observe(on_cirlce_click);
+            .observe(on_note_click);
 
         note_ind += 1;
     }
@@ -235,7 +235,7 @@ fn setup(
     }
 }
 
-fn on_cirlce_click(
+fn on_note_click(
     click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     mut note_name_rect_entity_q: Query<(Entity, &mut NoteNameRectLabel), With<NoteNameRectLabel>>,
