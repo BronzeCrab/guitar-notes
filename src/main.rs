@@ -182,6 +182,7 @@ fn setup(
         }
     }
 
+    // Рисуем названия нот
     let mut note_ind: usize = 5;
     let mut x_of_note_name: f32 = line_start_x;
     let y_of_note_name: f32 = 0.0;
@@ -222,6 +223,15 @@ fn setup(
             .observe(on_cirlce_click);
 
         note_ind += 1;
+    }
+
+    // Рисуем контуры гитары
+    for i in 0..1 {
+        commands.spawn((
+            Mesh2d(meshes.add(Rectangle::new(window_width - 2.0 * GAP, 3.0))),
+            MeshMaterial2d(materials.add(ColorMaterial::from(Color::BLACK))),
+            Transform::from_xyz(0.0, -0.5 * GAP, 0.0),
+        ));
     }
 }
 
