@@ -10,6 +10,7 @@ const GREY: Color = Color::srgba(0.6, 0.6, 0.6, 1.0);
 const AMOUNT_OF_FRETS: u8 = 22;
 const FONT_SIZE: f32 = 22.0;
 const RECT_SIZE: f32 = 30.0;
+const GUITAR_OUTLINE_COLOR: Color = Color::srgba(0.15, 0.15, 0.15, 1.0);
 
 const COLORS: [Color; 7] = [
     Color::srgba(1.0, 0.0, 0.0, 1.0), // Красный (Red)
@@ -229,7 +230,7 @@ fn setup(
     for i in 0..1 {
         commands.spawn((
             Mesh2d(meshes.add(Rectangle::new(window_width - 2.0 * GAP, 3.0))),
-            MeshMaterial2d(materials.add(ColorMaterial::from(Color::BLACK))),
+            MeshMaterial2d(materials.add(ColorMaterial::from(GUITAR_OUTLINE_COLOR))),
             Transform::from_xyz(0.0, -0.5 * GAP, 0.0),
         ));
     }
@@ -241,7 +242,8 @@ fn on_note_click(
     mut note_name_rect_entity_q: Query<(Entity, &mut NoteNameRectLabel), With<NoteNameRectLabel>>,
     children_query: Query<&Children>,
 ) {
-    let atuple = note_name_rect_entity_q.get_mut(click.target).unwrap();
+    let atuple: (Entity, Mut<'_, NoteNameRectLabel>) =
+        note_name_rect_entity_q.get_mut(click.target).unwrap();
     let note_name: &'static str = atuple.1.note_name;
     println!("Click on note, {:?}", note_name);
 }
