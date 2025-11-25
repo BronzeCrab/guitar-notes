@@ -1,4 +1,4 @@
-# Rust, Bevy based guitarist helper
+# Rust, Bevy based guitarist's helper
 
 This projects is aimed to help guitarists to convert any tabs to any tunning they want. It also can help beginner guitarists to learn notes, chords and experiment with different tunnings.
 

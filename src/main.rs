@@ -1,7 +1,8 @@
+use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
-use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::settings::*;
+use bevy_asset::RenderAssetUsages;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
@@ -114,7 +115,7 @@ fn setup(
             ..default()
         },
         // Set the justification of the Text
-        TextLayout::new_with_justify(JustifyText::Right),
+        TextLayout::new_with_justify(Justify::Right),
         // Set the style of the Node itself.
         Node {
             justify_self: JustifySelf::Center,
@@ -124,7 +125,7 @@ fn setup(
     ));
 
     let window_width: f32 = window.width();
-    let window_height: f32 = window.height();
+    let _window_height: f32 = window.height();
 
     let line_start_x: f32 = -window_width / 2.0 + GAP;
     let line_end_x: f32 = window_width / 2.0 - GAP;
@@ -139,7 +140,7 @@ fn setup(
         let vertices: Vec<[f32; 3]> =
             vec![[line_start_x, y_of_line, 0.0], [line_end_x, y_of_line, 0.0]];
         let mut line_mesh: Mesh = Mesh::new(
-            bevy::render::mesh::PrimitiveTopology::LineStrip,
+            PrimitiveTopology::LineStrip,
             RenderAssetUsages::RENDER_WORLD,
         );
         line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
@@ -171,7 +172,7 @@ fn setup(
                 [vert_line_start_x, vert_line_end_y, 0.0],
             ];
             let mut line_mesh: Mesh = Mesh::new(
-                bevy::render::mesh::PrimitiveTopology::LineStrip,
+                PrimitiveTopology::LineStrip,
                 RenderAssetUsages::RENDER_WORLD,
             );
             line_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
@@ -237,13 +238,15 @@ fn setup(
 }
 
 fn on_note_click(
-    click: Trigger<Pointer<Click>>,
+    click: On<Pointer<Click>>,
     mut commands: Commands,
     mut note_name_rect_entity_q: Query<(Entity, &mut NoteNameRectLabel), With<NoteNameRectLabel>>,
     children_query: Query<&Children>,
 ) {
+    let event: &Pointer<Click> = On::event(&click);
+    let entity: Entity = event.event_target();
     let atuple: (Entity, Mut<'_, NoteNameRectLabel>) =
-        note_name_rect_entity_q.get_mut(click.target).unwrap();
+        note_name_rect_entity_q.get_mut(entity).unwrap();
     let note_name: &'static str = atuple.1.note_name;
     println!("Click on note, {:?}", note_name);
 }
