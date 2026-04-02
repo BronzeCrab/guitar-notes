@@ -27,6 +27,7 @@ const COLORS: [Color; 7] = [
     Color::srgba(0.5, 0.0, 1.0, 1.0), // Фиолетовый (Purple/Violet)
 ];
 
+#[derive(Component)]
 struct Note {
     name: &'static str,
     hz: f32,
@@ -36,11 +37,6 @@ struct Note {
 struct Tunning {
     name: &'static str,
     notes: [Note; 6],
-}
-
-#[derive(Component)]
-pub struct NoteNameRectLabel {
-    note_name: &'static str,
 }
 
 // #[derive(Resource)]
@@ -226,7 +222,11 @@ fn setup(
                 MeshMaterial2d(materials.add(ColorMaterial::from(COLORS[note_ind]))),
                 Transform::from_xyz(x_of_note_name, y_of_note_name, 0.0),
                 Visibility::Visible,
-                NoteNameRectLabel { note_name: note },
+                Note {
+                    name: note,
+                    hz: 440.0,
+                    octave: 2,
+                },
                 Pickable::default(),
             ))
             .with_child((
@@ -255,19 +255,17 @@ fn setup(
 
 fn on_note_click(
     click: On<Pointer<Click>>,
-    mut note_name_rect_entity_q: Query<(Entity, &mut NoteNameRectLabel), With<NoteNameRectLabel>>,
+    note_name_rect_entity_q: Query<&Note>,
     mut pitch_assets: ResMut<Assets<Pitch>>,
     mut commands: Commands,
 ) {
     let event: &Pointer<Click> = On::event(&click);
     let entity: Entity = event.event_target();
-    let atuple: (Entity, Mut<'_, NoteNameRectLabel>) =
-        note_name_rect_entity_q.get_mut(entity).unwrap();
-    let note_name: &'static str = atuple.1.note_name;
-    println!("Click on note, {:?}", note_name);
+    let anote: &Note = note_name_rect_entity_q.get(entity).unwrap();
+    println!("Click on note, {:?}", anote.name);
 
     commands.spawn((
-        AudioPlayer(pitch_assets.add(Pitch::new(440.0, Duration::new(3, 0)))),
+        AudioPlayer(pitch_assets.add(Pitch::new(anote.hz, Duration::new(3, 0)))),
         PlaybackSettings::DESPAWN,
     ));
 }
