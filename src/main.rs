@@ -4,6 +4,10 @@ use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use bevy_asset::RenderAssetUsages;
 
+use rodio::source::{SineWave, Source};
+use std::thread;
+use std::time::Duration;
+
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
 const CUSTOM_WHITE: Color = Color::srgba(1.0, 1.0, 1.0, 0.5);
@@ -239,9 +243,7 @@ fn setup(
 
 fn on_note_click(
     click: On<Pointer<Click>>,
-    mut commands: Commands,
     mut note_name_rect_entity_q: Query<(Entity, &mut NoteNameRectLabel), With<NoteNameRectLabel>>,
-    children_query: Query<&Children>,
 ) {
     let event: &Pointer<Click> = On::event(&click);
     let entity: Entity = event.event_target();
@@ -249,4 +251,20 @@ fn on_note_click(
         note_name_rect_entity_q.get_mut(entity).unwrap();
     let note_name: &'static str = atuple.1.note_name;
     println!("Click on note, {:?}", note_name);
+
+    // Open the default output stream and get the mixer
+    let handle: rodio::MixerDeviceSink = rodio::DeviceSinkBuilder::open_default_sink().unwrap();
+    let mixer: &rodio::mixer::Mixer = handle.mixer();
+
+    // Create a sine wave source and apply distortion
+    let distorted = SineWave::new(440.0)
+        .amplify(0.2)
+        .take_duration(Duration::from_secs(3));
+
+    // Play the distorted sound
+    mixer.add(distorted);
+
+    println!("Playing distorted sine wave for 3 seconds...");
+    thread::sleep(Duration::from_secs(3));
+    println!("Done.");
 }
