@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use bevy::audio::Volume;
 use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use bevy_asset::RenderAssetUsages;
-
 use std::time::Duration;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
@@ -38,18 +38,6 @@ struct Tunning {
     name: &'static str,
     notes: [Note; 6],
 }
-
-// #[derive(Resource)]
-// struct NotesFreq {
-//     map: HashMap<String, f32>,
-// }
-
-// // Инициализация HashMap
-// fn init_hashmap() -> NotesFreq {
-//     let mut map: HashMap<String, f32> = HashMap::new();
-//     map.insert("ключ".to_string(), 42.0);
-//     NotesFreq { map }
-// }
 
 fn main() {
     App::new()
@@ -200,9 +188,12 @@ fn setup(
     let mut note_ind: usize = 5;
     let mut x_of_note_name: f32 = line_start_x;
     let y_of_note_name: f32 = 0.0;
+    let mut octave: i8 = 2;
+    // это для открытой E2 - басса (6я струна)
+    let mut half_notes_from_a_4: f32 = -5.0;
 
     for i in 0..12 {
-        if note_ind == 7 {
+        if note_ind == NOTES.len() {
             note_ind = 0;
         }
 
@@ -210,11 +201,19 @@ fn setup(
 
         if i == 0 {
             x_of_note_name += GAP;
+            half_notes_from_a_4 += 1.0;
         } else if note == "C" || note == "F" {
             x_of_note_name += GAP;
+            half_notes_from_a_4 += 1.0;
+            if note == "C" {
+                octave += 1;
+            }
         } else {
             x_of_note_name += 2.0 * GAP;
+            half_notes_from_a_4 += 2.0;
         }
+
+        let note_hz: f32 = get_note_hz_in_4_octave(half_notes_from_a_4) / 4.0;
 
         commands
             .spawn((
@@ -224,8 +223,8 @@ fn setup(
                 Visibility::Visible,
                 Note {
                     name: note,
-                    hz: 440.0,
-                    octave: 2,
+                    hz: note_hz,
+                    octave: octave,
                 },
                 Pickable::default(),
             ))
@@ -253,19 +252,32 @@ fn setup(
     }
 }
 
+#[derive(Component)]
+struct MyMusic;
+
 fn on_note_click(
     click: On<Pointer<Click>>,
     note_name_rect_entity_q: Query<&Note>,
     mut pitch_assets: ResMut<Assets<Pitch>>,
     mut commands: Commands,
+    mut audio_sink: Query<(&mut AudioSink, Entity), With<MyMusic>>,
 ) {
     let event: &Pointer<Click> = On::event(&click);
     let entity: Entity = event.event_target();
     let anote: &Note = note_name_rect_entity_q.get(entity).unwrap();
-    println!("Click on note, {:?}", anote.name);
+    println!(
+        "Click on note, name: {:?}, hz: {:?}, octave: {:?}",
+        anote.name, anote.hz, anote.octave
+    );
 
     commands.spawn((
         AudioPlayer(pitch_assets.add(Pitch::new(anote.hz, Duration::new(3, 0)))),
         PlaybackSettings::DESPAWN,
+        MyMusic,
     ));
+
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        println!("we are here");
+        audio.set_volume(Volume::Linear(1.0).fade_towards(Volume::SILENT, 2.0));
+    }
 }
