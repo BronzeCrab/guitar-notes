@@ -6,4 +6,3 @@ edition = "2024"
 [dependencies]
 bevy = "0.18.1"
 bevy_asset = "0.18.1"
-rodio = "0.22.2"
