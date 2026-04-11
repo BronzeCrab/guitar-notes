@@ -1,6 +1,5 @@
-use std::collections::HashMap;
+use rodio::source::{SineWave, Source};
 
-use bevy::audio::Volume;
 use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
@@ -252,15 +251,11 @@ fn setup(
     }
 }
 
-#[derive(Component)]
-struct MyMusic;
-
 fn on_note_click(
     click: On<Pointer<Click>>,
     note_name_rect_entity_q: Query<&Note>,
     mut pitch_assets: ResMut<Assets<Pitch>>,
     mut commands: Commands,
-    mut audio_sink: Query<(&mut AudioSink, Entity), With<MyMusic>>,
 ) {
     let event: &Pointer<Click> = On::event(&click);
     let entity: Entity = event.event_target();
@@ -270,14 +265,33 @@ fn on_note_click(
         anote.name, anote.hz, anote.octave
     );
 
-    commands.spawn((
-        AudioPlayer(pitch_assets.add(Pitch::new(anote.hz, Duration::new(3, 0)))),
-        PlaybackSettings::DESPAWN,
-        MyMusic,
-    ));
+    let handle: rodio::MixerDeviceSink =
+        rodio::DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
+    rodio::Player::connect_new(&handle.mixer());
+    // Generate sine wave.
+    let wave = SineWave::new(anote.hz)
+        .amplify(0.2)
+        .take_duration(Duration::from_secs(3))
+        .fade_out(Duration::from_secs(3));
+    handle.mixer().add(wave);
 
-    for (mut audio, entity) in audio_sink.iter_mut() {
-        println!("we are here");
-        audio.set_volume(Volume::Linear(1.0).fade_towards(Volume::SILENT, 2.0));
-    }
+    // The sound plays in a separate audio thread,
+    // so we need to keep the main thread alive while it's playing.
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
+    // let dur: Duration = Duration::new(3, 0);
+    // commands.spawn((
+    //     AudioPlayer(pitch_assets.add(Pitch::new(anote.hz, dur))),
+    //     PlaybackSettings {
+    //         mode: PlaybackMode::Loop,
+    //         volume: Volume::Linear(1.0).fade_towards(Volume::Linear(0.0), 0.5),
+    //         speed: 1.0,
+    //         paused: false,
+    //         muted: false,
+    //         spatial: false,
+    //         spatial_scale: None,
+    //         start_position: None,
+    //         duration: Some(dur),
+    //     },
+    // ));
 }
