@@ -3,9 +3,8 @@ use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use bevy_asset::RenderAssetUsages;
-use rodio::BitDepth;
-use rodio::source::DitherAlgorithm;
-use rodio::source::{SineWave, Source};
+use rodio::source::{Dither, DitherAlgorithm, FadeIn, FadeOut, SineWave, Source, TakeDuration};
+use rodio::{BitDepth, DeviceSinkBuilder, MixerDeviceSink, Player};
 use std::thread;
 use std::time::Duration;
 
@@ -256,7 +255,6 @@ fn setup(
 fn on_note_click(
     click: On<Pointer<Click>>,
     note_name_rect_entity_q: Query<&Note>,
-    mut pitch_assets: ResMut<Assets<Pitch>>,
     mut commands: Commands,
 ) {
     let event: &Pointer<Click> = On::event(&click);
@@ -269,19 +267,19 @@ fn on_note_click(
 
     let hz_value: f32 = anote.hz; // переменная, которую нужно передать
 
-    // Запускаем новый поток
     let _ = thread::spawn(move || {
-        let handle: rodio::MixerDeviceSink =
-            rodio::DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
-        rodio::Player::connect_new(&handle.mixer());
+        let handle: MixerDeviceSink =
+            DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
+        Player::connect_new(&handle.mixer());
         // Generate sine wave.
-        let wave = SineWave::new(hz_value)
+        let wave: FadeOut<FadeIn<TakeDuration<SineWave>>> = SineWave::new(hz_value)
             // .amplify(0.2)
             .take_duration(Duration::from_secs(3))
             .fade_in(Duration::from_secs(1))
             .fade_out(Duration::from_secs(1));
 
-        let dithered = wave.dither(BitDepth::new(16).unwrap(), DitherAlgorithm::TPDF);
+        let dithered: Dither<FadeOut<FadeIn<TakeDuration<SineWave>>>> =
+            wave.dither(BitDepth::new(16).unwrap(), DitherAlgorithm::TPDF);
 
         handle.mixer().add(dithered);
 
@@ -289,39 +287,4 @@ fn on_note_click(
         // so we need to keep the main thread alive while it's playing.
         std::thread::sleep(Duration::from_secs(3));
     });
-
-    // let dur: Duration = Duration::new(3, 0);
-
-    // commands.spawn((
-    //     AudioPlayer(pitch_assets.add(Pitch::new(anote.hz, dur))),
-    //     PlaybackSettings {
-    //         mode: PlaybackMode::Once,
-    //         volume: Volume::Linear(1.0).fade_towards(Volume::Linear(0.0), 0.1),
-    //         speed: 1.0,
-    //         paused: false,
-    //         muted: false,
-    //         spatial: false,
-    //         spatial_scale: None,
-    //         start_position: None,
-    //         duration: Some(dur),
-    //     },
-    // ));
-
-    // audio
-    //     .play(pitch_assets.add(Pitch::new(anote.hz, dur)))
-    //     // The first 0.5 seconds will not be looped and are the "intro"
-    //     .loop_from(0.5)
-    //     // Fade-in with a dynamic easing
-    //     .fade_in(AudioTween::new(
-    //         Duration::from_secs(2),
-    //         AudioEasing::OutPowi(2),
-    //     ))
-    //     // Only play on our right ear
-    //     .with_panning(1.0)
-    //     // Increase playback rate by 50% (this also increases the pitch)
-    //     .with_playback_rate(1.5)
-    //     // Play at lower volume (-10dB)
-    //     .with_volume(-10.)
-    //     // play the track reversed
-    //     .reverse();
 }
