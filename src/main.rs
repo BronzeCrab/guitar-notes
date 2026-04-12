@@ -243,20 +243,25 @@ fn setup(
     }
 
     // Рисуем контуры гитары
-    for i in 0..1 {
+    for i in 0..2 {
+        let mut x: Option<f32> = None;
+        let mut y: Option<f32> = None;
+        if i == 0 {
+            x = Some(0.0);
+            y = Some(-0.5 * GAP);
+        } else if i == 1 {
+            x = Some(0.0);
+            y = Some(last_str_y.unwrap() + 0.5 * GAP);
+        }
         commands.spawn((
             Mesh2d(meshes.add(Rectangle::new(window_width - 2.0 * GAP, 3.0))),
             MeshMaterial2d(materials.add(ColorMaterial::from(GUITAR_OUTLINE_COLOR))),
-            Transform::from_xyz(0.0, -0.5 * GAP, 0.0),
+            Transform::from_xyz(x.unwrap(), y.unwrap(), 0.0),
         ));
     }
 }
 
-fn on_note_click(
-    click: On<Pointer<Click>>,
-    note_name_rect_entity_q: Query<&Note>,
-    mut commands: Commands,
-) {
+fn on_note_click(click: On<Pointer<Click>>, note_name_rect_entity_q: Query<&Note>) {
     let event: &Pointer<Click> = On::event(&click);
     let entity: Entity = event.event_target();
     let anote: &Note = note_name_rect_entity_q.get(entity).unwrap();
@@ -270,7 +275,7 @@ fn on_note_click(
     let _ = thread::spawn(move || {
         let handle: MixerDeviceSink =
             DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
-        Player::connect_new(&handle.mixer());
+        let player: Player = Player::connect_new(&handle.mixer());
         // Generate sine wave.
         let wave: FadeOut<FadeIn<TakeDuration<SineWave>>> = SineWave::new(hz_value)
             // .amplify(0.2)
