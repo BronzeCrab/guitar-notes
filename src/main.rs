@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use bevy_asset::RenderAssetUsages;
+use rodio::BitDepth;
+use rodio::source::DitherAlgorithm;
 use rodio::source::{SineWave, Source};
 use std::thread;
 use std::time::Duration;
@@ -274,15 +276,18 @@ fn on_note_click(
         rodio::Player::connect_new(&handle.mixer());
         // Generate sine wave.
         let wave = SineWave::new(hz_value)
-            .amplify(0.2)
+            // .amplify(0.2)
             .take_duration(Duration::from_secs(3))
-            .fade_in(Duration::from_secs(3))
-            .fade_out(Duration::from_secs(3));
-        handle.mixer().add(wave);
+            .fade_in(Duration::from_secs(1))
+            .fade_out(Duration::from_secs(1));
+
+        let dithered = wave.dither(BitDepth::new(16).unwrap(), DitherAlgorithm::TPDF);
+
+        handle.mixer().add(dithered);
 
         // The sound plays in a separate audio thread,
         // so we need to keep the main thread alive while it's playing.
-        std::thread::sleep(std::time::Duration::from_secs(3));
+        std::thread::sleep(Duration::from_secs(3));
     });
 
     // let dur: Duration = Duration::new(3, 0);
