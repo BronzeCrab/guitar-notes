@@ -81,8 +81,7 @@ pub fn main() {
         .init_state::<Tuning>()
         .init_resource::<GameData>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter::new(Tuning), update_fretboard)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui, update_fretboard))
         .run();
 }
 
@@ -93,8 +92,7 @@ fn main() {
         .init_state::<Tuning>()
         .init_resource::<GameData>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter::new(Tuning), update_fretboard)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui, update_fretboard))
         .run();
 }
 
@@ -470,13 +468,12 @@ fn update_score_ui(
 }
 
 fn update_fretboard(
-    trigger: Trigger<OnEnter<Tuning>>,
-    tuning: Res<Tuning>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     window: Single<&Window>,
     existing_notes: Query<Entity, With<FretNote>>,
+    tuning: Res<Tuning>,
 ) {
     for entity in existing_notes.iter() {
         commands.entity(entity).despawn();
