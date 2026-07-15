@@ -31,6 +31,9 @@ jobs:
     - name: Install wasm-opt
       run: cargo install wasm-opt
     
+    - name: Cargo Check
+      run: cargo check --target wasm32-unknown-unknown
+    
     - name: Build WASM
       run: cargo build --profile wasm-release --target wasm32-unknown-unknown
     
