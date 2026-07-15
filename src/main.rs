@@ -2,10 +2,8 @@ use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use rand::Rng;
-use rodio::source::{Dither, DitherAlgorithm, FadeIn, FadeOut, SineWave, Source, TakeDuration};
-use rodio::{BitDepth, DeviceSinkBuilder, MixerDeviceSink};
-use std::thread;
-use std::time::Duration;
+use wasm_bindgen::prelude::*;
+use web_sys::HtmlCanvasElement;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
@@ -20,7 +18,7 @@ const COLORS: [Color; 7] = [
     Color::srgba(0.0, 1.0, 0.0, 1.0),   // D - Green
     Color::srgba(0.0, 0.5, 1.0, 1.0),   // A - Cyan
     Color::srgba(0.0, 0.0, 1.0, 1.0),   // E - Blue
-    Color::srgba(0.5, 0.0, 1.0, 1.0),   // C - Purple (for open notes)
+    Color::srgba(0.5, 0.0, 1.0, 1.0),   // C - Purple
 ];
 
 #[derive(Component, Clone, Copy)]
@@ -45,31 +43,20 @@ enum Tuning {
 #[derive(Resource, Clone, Copy, Debug)]
 enum LearningMode {
     None,
-    GuessNote,   // Найди ноту по звуку
-    EarTraining, // Повтори ноту
+    GuessNote,
+    EarTraining,
 }
 
 #[derive(Resource)]
 struct GameData {
     current_mode: LearningMode,
-    target_note: Option<(usize, u8)>, // string, fret
+    target_note: Option<(usize, u8)>,
     score: u32,
     attempts: u32,
     correct_count: u32,
     streak: u32,
     best_streak: u32,
 }
-
-#[derive(Component)]
-struct GuitarNeck;
-#[derive(Component)]
-struct LearnText;
-#[derive(Component)]
-struct ScoreText;
-#[derive(Component)]
-struct StreakText;
-#[derive(Component)]
-struct FeedbackText;
 
 impl Tuning {
     fn name(&self) -> &'static str {
@@ -118,12 +105,26 @@ impl Tuning {
     }
 }
 
+#[derive(Component)]
+struct GuitarNeck;
+#[derive(Component)]
+struct LearnText;
+#[derive(Component)]
+struct ScoreText;
+#[derive(Component)]
+struct StreakText;
+#[derive(Component)]
+struct FeedbackText;
+
 fn main() {
+    #[cfg(target_arch = "wasm32")]
+    console_error_panic_hook::set_once();
+    
     App::new()
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
                 render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN),
+                    backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
                     ..default()
                 }.into(),
                 ..default()
@@ -167,7 +168,6 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
     
-    // Title
     commands.spawn((
         Text::new("Guitar Notes - Interactive Fretboard"),
         TextFont { font_size: 28.0, ..default() },
@@ -179,7 +179,6 @@ fn setup(
     setup_ui_controls(&mut commands, &window);
     setup_score_ui(&mut commands, &window);
     
-    // Initialize game data
     let mut game_data = GameData {
         current_mode: LearningMode::None,
         target_note: None,
@@ -190,7 +189,6 @@ fn setup(
         best_streak: 0,
     };
     
-    // Spawn initial target note for learning mode
     spawn_target_note(&mut commands, &mut game_data);
     
     commands.insert_resource(game_data);
@@ -201,24 +199,6 @@ fn spawn_target_note(commands: &mut Commands, game_data: &mut GameData) {
     let string = rng.gen_range(0..6);
     let fret = rng.gen_range(0..=AMOUNT_OF_FRETS);
     game_data.target_note = Some((string, fret));
-    
-    // Play the target note sound
-    let tuning = Tuning::Standard;
-    let open_hz = tuning.open_string_hz(string);
-    let hz = open_hz * 2_f32.powf(fret as f32 / 12.0);
-    
-    thread::spawn(move || {
-        if let Some(handle) = DeviceSinkBuilder::open_default_sink().ok() {
-            let wave = SineWave::new(hz)
-                .take_duration(Duration::from_secs(1))
-                .fade_in(Duration::from_millis(100))
-                .fade_out(Duration::from_millis(200));
-            
-            let dithered = wave.dither(BitDepth::new(16).unwrap(), DitherAlgorithm::TPDF);
-            handle.mixer().add(dithered);
-            thread::sleep(Duration::from_secs(2));
-        }
-    });
 }
 
 fn setup_neck(
@@ -248,7 +228,6 @@ fn setup_notes(
     let line_start_x = -window_width / 2.0 + GAP;
     let line_end_x = window_width / 2.0 - GAP;
     
-    // Draw frets (22 total)
     for fret in 0..=AMOUNT_OF_FRETS {
         let x = line_start_x + fret as f32 * GAP * 2.0;
         let vertices: Vec<[f32; 3]> = (0..6).map(|i| {
@@ -263,7 +242,6 @@ fn setup_notes(
         ));
     }
     
-    // Draw strings (6)
     for string_idx in 0..6 {
         let y = string_idx as f32 * GAP - GAP * 2.5;
         let vertices: Vec<[f32; 3]> = vec![[line_start_x, y, 0.0], [line_end_x + GAP * 42.0, y, 0.0]];
@@ -276,7 +254,6 @@ fn setup_notes(
         ));
     }
     
-    // Draw all notes for each string/fret
     for string_idx in 0..6 {
         let open_hz = tuning.open_string_hz(string_idx);
         for fret in 0..=AMOUNT_OF_FRETS {
@@ -337,16 +314,11 @@ fn on_note_click(
     let entity = event.event_target();
     
     if let Ok(note) = query_notes.get(entity) {
-        // Play the clicked note
-        play_note_sound(note.hz);
-        
-        // Check if in learning mode and if correct
         if game_data.current_mode == LearningMode::GuessNote {
             if let Some((target_string, target_fret)) = game_data.target_note {
                 game_data.attempts += 1;
                 
                 if note.string == target_string && note.fret == target_fret {
-                    // Correct!
                     game_data.score += 100 + (game_data.streak * 10) as u32;
                     game_data.correct_count += 1;
                     game_data.streak += 1;
@@ -355,7 +327,6 @@ fn on_note_click(
                     let feedback = format!("✓ Правильно! +{}", 100 + (game_data.streak * 10) as u32);
                     update_feedback(&mut commands, &mut feedback_query, &feedback);
                     
-                    // Spawn new target
                     spawn_target_note(&mut commands, &mut game_data);
                 } else {
                     game_data.streak = 0;
@@ -368,21 +339,6 @@ fn on_note_click(
             }
         }
     }
-}
-
-fn play_note_sound(hz: f32) {
-    thread::spawn(move || {
-        if let Some(handle) = DeviceSinkBuilder::open_default_sink().ok() {
-            let wave = SineWave::new(hz)
-                .take_duration(Duration::from_secs(1))
-                .fade_in(Duration::from_millis(50))
-                .fade_out(Duration::from_millis(100));
-            
-            let dithered = wave.dither(BitDepth::new(16).unwrap(), DitherAlgorithm::TPDF);
-            handle.mixer().add(dithered);
-            thread::sleep(Duration::from_secs(1));
-        }
-    });
 }
 
 fn update_feedback(
@@ -428,7 +384,6 @@ fn handle_key_input(
         next_tuning.set(Tuning::OpenG);
     }
 
-    // Learning modes
     if keyboard_input.just_pressed(KeyCode::KeyL) {
         game_data.current_mode = LearningMode::GuessNote;
         spawn_target_note(&mut commands, &mut game_data);
