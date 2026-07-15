@@ -19,25 +19,25 @@ pub enum Tuning {
 }
 
 #[derive(Resource, Default)]
-struct GameData {
-    current_mode: LearningMode,
-    target_note: Option<(u8, u8)>,
-    score: u32,
-    attempts: u32,
-    correct_count: u32,
-    streak: u32,
-    best_streak: u32,
+pub struct GameData {
+    pub current_mode: LearningMode,
+    pub target_note: Option<(u8, u8)>,
+    pub score: u32,
+    pub attempts: u32,
+    pub correct_count: u32,
+    pub streak: u32,
+    pub best_streak: u32,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-enum LearningMode {
+pub enum LearningMode {
     #[default]
     None,
     GuessNote,
     EarTraining,
 }
 
-const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
+pub const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const STANDARD_TUNING: [f32; 6] = [329.63, 246.94, 196.00, 146.83, 110.00, 82.41];
 const GAP: f32 = 40.0;
 const RECT_SIZE: f32 = 30.0;
@@ -54,12 +54,12 @@ const COLORS: [Color; 7] = [
 ];
 
 #[derive(Component, Clone, Copy)]
-struct FretNote {
-    string: u8,
-    fret: u8,
-    note_name: &'static str,
-    hz: f32,
-    octave: i8,
+pub struct FretNote {
+    pub string: u8,
+    pub fret: u8,
+    pub note_name: &'static str,
+    pub hz: f32,
+    pub octave: i8,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -96,7 +96,7 @@ fn main() {
         .run();
 }
 
-fn get_open_string_hz(string_idx: u8, tuning: &Tuning) -> f32 {
+pub fn get_open_string_hz(string_idx: u8, tuning: &Tuning) -> f32 {
     match tuning {
         Tuning::Standard => STANDARD_TUNING[string_idx as usize],
         Tuning::DropD => {
@@ -137,7 +137,7 @@ fn get_open_string_hz(string_idx: u8, tuning: &Tuning) -> f32 {
     }
 }
 
-fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i8) {
+pub fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i8) {
     let hz = 440.0 * 2_f32.powf(half_tones_from_a4 / 12.0);
     
     let octave = ((hz / 440.0).log2().round() as i32 + 4) as i8;
@@ -153,7 +153,7 @@ fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i
     (NOTES[note_idx.min(6)], hz, octave)
 }
 
-fn setup(
+pub fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -187,7 +187,7 @@ fn setup(
     commands.insert_resource(game_data);
 }
 
-fn spawn_target_note(commands: &mut Commands, game_data: &mut GameData) {
+pub fn spawn_target_note(commands: &mut Commands, game_data: &mut GameData) {
     let mut rng = rand::thread_rng();
     let string = rng.gen_range(0..6);
     let fret = rng.gen_range(0..=AMOUNT_OF_FRETS);
