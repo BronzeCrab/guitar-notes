@@ -34,17 +34,10 @@
             border-radius: 20px;
             padding: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            max-width: 100%;
-            overflow-x: auto;
         }
-        #gameCanvas {
+        canvas {
             border-radius: 10px;
             display: block;
-            cursor: pointer;
-        }
-        #wasm-canvas {
-            display: none;
-            border-radius: 10px;
         }
         .loading {
             font-size: 1.5rem;
@@ -60,445 +53,49 @@
             margin-bottom: 10px;
             color: #feca57;
         }
-        .controls {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
+        .instructions ul {
+            list-style: none;
+            padding: 0;
         }
-        .controls button {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .controls button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-        .controls button.active {
-            background: #feca57;
-            color: #1a1a2e;
-            border-color: #feca57;
-        }
-        .score-display {
-            margin-top: 15px;
-            font-size: 1.5rem;
-            display: flex;
-            gap: 30px;
-            justify-content: center;
-        }
-        .score-item {
+        .instructions li {
+            margin: 5px 0;
+            padding: 5px 10px;
             background: rgba(255, 255, 255, 0.1);
-            padding: 10px 20px;
-            border-radius: 10px;
-        }
-        .score-label {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #feca57;
-        }
-        .feedback {
-            margin-top: 10px;
-            font-size: 1.2rem;
-            min-height: 30px;
-        }
-        .feedback.correct {
-            color: #48dbfb;
-        }
-        .feedback.incorrect {
-            color: #ff6b6b;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 5px;
         }
     </style>
 </head>
 <body>
     <h1>🎸 Guitar Notes</h1>
-    
-    <div id="loading" class="loading">Загрузка...</div>
-    
-    <div class="game-container" id="gameContainer" style="display: none;">
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
-        <canvas id="wasm-canvas" width="800" height="400"></canvas>
+    <div id="loading" class="loading">Загрузка WASM...</div>
+    <div class="game-container" style="display: none;">
+        <canvas id="game"></canvas>
     </div>
-    
-    <div class="score-display" id="scoreDisplay" style="display: none;">
-        <div class="score-item">
-            <div class="score-label">Score</div>
-            <div class="score-value" id="score">0</div>
-        </div>
-        <div class="score-item">
-            <div class="score-label">Streak</div>
-            <div class="score-value" id="streak">0</div>
-        </div>
-    </div>
-    
-    <div class="feedback" id="feedback"></div>
-    
-    <div class="controls" id="controls" style="display: none;">
-        <button id="btn-standard" class="active" onclick="setTuning('standard')">Standard</button>
-        <button id="btn-dropd" onclick="setTuning('dropd')">Drop D</button>
-        <button id="btn-dropc" onclick="setTuning('dropc')">Drop C</button>
-        <button id="btn-halfstep" onclick="setTuning('halfstep')">Half Step</button>
-        <button id="btn-opend" onclick="setTuning('opend')">Open D</button>
-        <button id="btn-openg" onclick="setTuning('openg')">Open G</button>
-    </div>
-    
-    <div class="controls" id="gameControls" style="display: none;">
-        <button id="btn-guess" onclick="startGuessMode()">🎵 Угадай ноту</button>
-        <button id="btn-ear" onclick="startEarMode()">👂 Тренировка слуха</button>
-        <button id="btn-reset" onclick="resetGame()">🔄 Сброс</button>
-    </div>
-    
-    <div class="instructions" id="instructions">
+    <div class="instructions">
         <h3>Управление:</h3>
         <ul>
-            <li><strong>Клик</strong> - сыграть ноту</li>
-            <li><strong>Кнопки выше</strong> - сменить строев</li>
-            <li><strong>Режимы</strong> - для обучения</li>
+            <li><strong>1-6</strong> - Строев</li>
+            <li><strong>L</strong> - Угадай ноту</li>
+            <li><strong>E</strong> - Тренировка слуха</li>
+            <li><strong>Space</strong> - Сброс</li>
         </ul>
     </div>
     
     <script type="module">
-        // Try to load WASM first, fallback to JS
-        let wasmModule = null;
+        import init from './pkg/guitar_notes.js';
         
-        async function initWasm() {
-            try {
-                // Try to load WASM module
-                const pkg = await import('./pkg/guitar_notes.js');
-                wasmModule = pkg.default;
-                
-                // Initialize WASM game
-                const canvas = document.getElementById('wasm-canvas');
-                canvas.style.display = 'block';
-                document.getElementById('gameCanvas').style.display = 'none';
-                
-                await wasmModule.default(canvas);
-                
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('gameContainer').style.display = 'block';
-                document.getElementById('scoreDisplay').style.display = 'flex';
-                document.getElementById('controls').style.display = 'flex';
-                document.getElementById('gameControls').style.display = 'flex';
-                
-                return true;
-            } catch (e) {
-                console.log('WASM not available, using JS fallback:', e);
-                return false;
-            }
-        }
+        const canvas = document.getElementById('game');
         
-        // JS Fallback implementation
-        function initJSGames() {
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Game constants
-            const NOTES = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-            const GAP = 40;
-            const AMOUNT_OF_FRETS = 22;
-            const RECT_SIZE = 28;
-            
-            const COLORS = [
-                '#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#341f97', '#ff9ff3'
-            ];
-            
-            const TUNINGS = {
-                standard: [82.41, 110.0, 146.83, 196.0, 246.94, 329.63],
-                dropd: [73.42, 110.0, 146.83, 196.0, 246.94, 329.63],
-                dropc: [65.41, 98.0, 130.81, 196.0, 246.94, 329.63],
-                halfstep: [77.78, 103.83, 138.59, 185.0, 233.08, 311.13],
-                opend: [73.42, 110.0, 73.42, 92.50, 110.0, 146.83],
-                openg: [73.42, 196.0, 73.42, 196.0, 246.94, 392.0],
-            };
-            
-            let currentTuning = 'standard';
-            let gameMode = 'free';
-            let targetNote = null;
-            let score = 0;
-            let streak = 0;
-            let bestStreak = 0;
-            
-            let audioContext = null;
-            
-            function initAudio() {
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            }
-            
-            function playNote(frequency, duration = 1.0) {
-                initAudio();
-                
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.value = frequency;
-                oscillator.type = 'sine';
-                
-                const now = audioContext.currentTime;
-                gainNode.gain.setValueAtTime(0.3, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
-                
-                oscillator.start(now);
-                oscillator.stop(now + duration);
-            }
-            
-            function getNoteName(hz) {
-                const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                const A4 = 440;
-                const semitones = 12 * Math.log2(hz / A4);
-                const rounded = Math.round(semitones);
-                const noteIndex = ((rounded % 12) + 12) % 12;
-                const octave = Math.floor((rounded + 9) / 12);
-                return { name: noteNames[noteIndex], octave: octave, hz: hz };
-            }
-            
-            function getNoteAtFret(openHz, fret) {
-                const hz = openHz * Math.pow(2, fret / 12);
-                return getNoteName(hz);
-            }
-            
-            function drawFretboard() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                const startX = 50;
-                const startY = 50;
-                const stringSpacing = 45;
-                const fretSpacing = 50;
-                
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.lineWidth = 2;
-                
-                for (let fret = 0; fret <= AMOUNT_OF_FRETS; fret++) {
-                    const x = startX + fret * fretSpacing;
-                    ctx.beginPath();
-                    ctx.moveTo(x, startY);
-                    ctx.lineTo(x, startY + 6 * stringSpacing);
-                    ctx.stroke();
-                    
-                    if (fret > 0) {
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                        ctx.font = '14px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(fret.toString(), x, startY + 6 * stringSpacing + 20);
-                    }
-                }
-                
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                
-                for (let string = 0; string < 6; string++) {
-                    const y = startY + string * stringSpacing;
-                    ctx.beginPath();
-                    ctx.moveTo(startX, y);
-                    ctx.lineTo(startX + AMOUNT_OF_FRETS * fretSpacing, y);
-                    ctx.stroke();
-                }
-                
-                const tuning = TUNINGS[currentTuning];
-                
-                for (let string = 0; string < 6; string++) {
-                    for (let fret = 0; fret <= AMOUNT_OF_FRETS; fret++) {
-                        const note = getNoteAtFret(tuning[string], fret);
-                        const x = startX + fret * fretSpacing;
-                        const y = startY + string * stringSpacing;
-                        
-                        const noteIdx = NOTES.indexOf(note.name);
-                        const color = COLORS[noteIdx >= 0 ? noteIdx : 0];
-                        
-                        ctx.beginPath();
-                        ctx.arc(x, y, RECT_SIZE / 2, 0, 2 * Math.PI);
-                        ctx.fillStyle = color;
-                        ctx.fill();
-                        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-                        
-                        ctx.fillStyle = '#ffffff';
-                        ctx.font = 'bold 12px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(note.name, x, y);
-                        
-                        if (gameMode === 'guess' || gameMode === 'ear') {
-                            if (targetNote && targetNote.string === string && targetNote.fret === fret) {
-                                ctx.strokeStyle = '#feca57';
-                                ctx.lineWidth = 4;
-                                ctx.stroke();
-                            }
-                        }
-                    }
-                }
-            }
-            
-            function getRandomNote() {
-                return {
-                    string: Math.floor(Math.random() * 6),
-                    fret: Math.floor(Math.random() * (AMOUNT_OF_FRETS + 1))
-                };
-            }
-            
-            function startGuessMode() {
-                gameMode = 'guess';
-                targetNote = getRandomNote();
-                showFeedback('Найди ноту: ' + targetNote.string + ' струна, ' + targetNote.fret + ' лад', '');
-                updateControls();
-                
-                setTimeout(() => {
-                    const tuning = TUNINGS[currentTuning];
-                    const note = getNoteAtFret(tuning[targetNote.string], targetNote.fret);
-                    playNote(note.hz, 1.5);
-                }, 500);
-            }
-            
-            function startEarMode() {
-                gameMode = 'ear';
-                targetNote = getRandomNote();
-                showFeedback('Угадай ноту по звуку', '');
-                updateControls();
-                
-                setTimeout(() => {
-                    const tuning = TUNINGS[currentTuning];
-                    const note = getNoteAtFret(tuning[targetNote.string], targetNote.fret);
-                    playNote(note.hz, 1.5);
-                }, 500);
-            }
-            
-            function resetGame() {
-                gameMode = 'free';
-                targetNote = null;
-                score = 0;
-                streak = 0;
-                bestStreak = 0;
-                updateScoreDisplay();
-                showFeedback('', '');
-                updateControls();
-                drawFretboard();
-            }
-            
-            window.setTuning = function(tuning) {
-                currentTuning = tuning;
-                updateControls();
-                drawFretboard();
-            };
-            
-            function updateControls() {
-                document.querySelectorAll('.controls button').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                
-                const tuningButtons = {
-                    'btn-standard': 'standard',
-                    'btn-dropd': 'dropd',
-                    'btn-dropc': 'dropc',
-                    'btn-halfstep': 'halfstep',
-                    'btn-opend': 'opend',
-                    'btn-openg': 'openg'
-                };
-                
-                for (const [id, tuning] of Object.entries(tuningButtons)) {
-                    if (tuning === currentTuning) {
-                        document.getElementById(id).classList.add('active');
-                    }
-                }
-                
-                if (gameMode === 'guess') {
-                    document.getElementById('btn-guess').classList.add('active');
-                } else if (gameMode === 'ear') {
-                    document.getElementById('btn-ear').classList.add('active');
-                }
-            }
-            
-            function updateScoreDisplay() {
-                document.getElementById('score').textContent = score;
-                document.getElementById('streak').textContent = streak;
-            }
-            
-            function showFeedback(text, type) {
-                const feedbackEl = document.getElementById('feedback');
-                feedbackEl.textContent = text;
-                feedbackEl.className = 'feedback ' + type;
-            }
-            
-            function handleCanvasClick(event) {
-                const rect = canvas.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-                
-                const startX = 50;
-                const startY = 50;
-                const stringSpacing = 45;
-                const fretSpacing = 50;
-                
-                const fret = Math.round((x - startX) / fretSpacing);
-                const string = Math.round((y - startY) / stringSpacing);
-                
-                if (fret >= 0 && fret <= AMOUNT_OF_FRETS && string >= 0 && string < 6) {
-                    const tuning = TUNINGS[currentTuning];
-                    const note = getNoteAtFret(tuning[string], fret);
-                    playNote(note.hz, 1.0);
-                    
-                    if (gameMode === 'guess' || gameMode === 'ear') {
-                        if (targetNote && string === targetNote.string && fret === targetNote.fret) {
-                            streak++;
-                            bestStreak = Math.max(bestStreak, streak);
-                            score += 100 + (streak * 10);
-                            showFeedback('✓ Правильно! +' + (100 + (streak * 10)), 'correct');
-                            
-                            targetNote = getRandomNote();
-                            
-                            setTimeout(() => {
-                                const note = getNoteAtFret(tuning[targetNote.string], targetNote.fret);
-                                playNote(note.hz, 1.5);
-                            }, 500);
-                        } else {
-                            streak = 0;
-                            showFeedback('✗ Неверно, попробуй ещё!', 'incorrect');
-                        }
-                        
-                        updateScoreDisplay();
-                        drawFretboard();
-                    }
-                }
-            }
-            
-            canvas.addEventListener('click', handleCanvasClick);
-            
-            // Show game UI
+        try {
+            await init(canvas);
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('gameContainer').style.display = 'block';
-            document.getElementById('scoreDisplay').style.display = 'flex';
-            document.getElementById('controls').style.display = 'flex';
-            document.getElementById('gameControls').style.display = 'flex';
-            
-            drawFretboard();
-            updateControls();
+            document.querySelector('.game-container').style.display = 'block';
+        } catch (e) {
+            document.getElementById('loading').textContent = 'Ошибка загрузки: ' + e.message;
+            console.error(e);
         }
-        
-        // Initialize game
-        async function init() {
-            const wasmLoaded = await initWasm();
-            if (!wasmLoaded) {
-                initJSGames();
-            }
-        }
-        
-        init();
     </script>
 </body>
 </html>

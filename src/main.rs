@@ -3,7 +3,6 @@ use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
-use web_sys::HtmlCanvasElement;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
@@ -116,8 +115,8 @@ struct StreakText;
 #[derive(Component)]
 struct FeedbackText;
 
-fn main() {
-    #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub fn main() {
     console_error_panic_hook::set_once();
     
     App::new()
