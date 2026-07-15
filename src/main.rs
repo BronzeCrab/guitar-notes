@@ -63,7 +63,6 @@ pub struct FretNote {
     pub octave: i8,
 }
 
-#[cfg(target_arch = "wasm32")]
 #[unsafe(no_mangle)]
 pub extern "C" fn main() {
     console_error_panic_hook::set_once();
@@ -79,17 +78,6 @@ pub extern "C" fn main() {
             }),
             MeshPickingPlugin,
         ))
-        .init_state::<Tuning>()
-        .init_resource::<GameData>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui, update_fretboard))
-        .run();
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .init_state::<Tuning>()
         .init_resource::<GameData>()
         .add_systems(Startup, setup)
