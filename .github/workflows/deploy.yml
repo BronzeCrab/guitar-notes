@@ -2,8 +2,11 @@ name: Build and Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, feature/wasm-github-pages ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -11,31 +14,38 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
-      with:
-        persist-credentials: false
     
     - name: Configure git
       run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        git config --global init.defaultBranch main
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
     
-    - name: Install wasm-pack
-      uses: jetli/wasm-pack-action@v0.4.0
-      with:
-        version: 'latest'
+    - name: Prepare
+      run: |
+        cargo install wasm-bindgen-cli
+        cargo install wasm-opt
     
     - name: Build WASM
-      run: wasm-pack build --target web --out-dir pkg
+      run: |
+        source "$HOME/.cargo/env"
+        cargo build --profile wasm-release --target wasm32-unknown-unknown
+    
+    - name: Optimize WASM
+      run: |
+        wasm-opt -Oz --output optimized.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+        mv optimized.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+    
+    - name: Bindgen
+      run: |
+        wasm-bindgen --out-name guitar_notes --out-dir www --target web target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
     
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: .
-        enable_jekyll: false
+        publish_dir: ./www
