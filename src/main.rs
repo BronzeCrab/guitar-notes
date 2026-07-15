@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
+use bevy::render::mesh::{Mesh, PrimitiveTopology, RenderAssetUsages};
 use rand::Rng;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-use web_sys::HtmlCanvasElement;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub enum Tuning {
@@ -144,17 +142,12 @@ fn get_open_string_hz(string_idx: u8, tuning: &Tuning) -> f32 {
 fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i8) {
     let hz = 440.0 * 2_f32.powf(half_tones_from_a4 / 12.0);
     
-    let semitone_names: [(i32, &'static str); 12] = [
-        (0, "A"), (1, "Bb/A#"), (2, "B"), (3, "C"), (4, "Db/C#"), (5, "D"),
-        (6, "Eb/D#"), (7, "E"), (8, "F"), (9, "F#/Gb"), (10, "G"), (11, "G#/Ab")
-    ];
-    
     let octave = ((hz / 440.0).log2().round() as i32 + 4) as i8;
     
     let ratio = (hz / open_hz).log2() * 12.0;
-    let semitone = (ratio.round() % 12 + 12) % 12;
+    let semitone = (ratio.round() % 12.0 + 12.0) % 12.0;
     
-    let note_idx = match semitone {
+    let note_idx = match semitone as i32 {
         0 => 0, 1 => 0, 2 => 1, 3 => 3, 4 => 3, 5 => 4,
         6 => 5, 7 => 6, 8 => 6, 9 => 6, 10 => 6, 11 => 6,
         _ => 0,
@@ -358,7 +351,7 @@ fn update_feedback(
         commands.spawn((
             Text::new(text),
             TextFont { font_size: FontSize::Px(20.0), ..default() },
-            TextColor(Color::GREEN),
+            TextColor(Color::srgba(0.0, 0.5, 0.0, 1.0)),
             FeedbackText,
             Transform::from_xyz(0.0, -100.0, 0.0),
         ));
@@ -489,7 +482,7 @@ fn update_fretboard(
         commands.entity(entity).despawn();
     }
     
-    setup_notes(&mut commands, &mut meshes, &mut materials, &window, tuning.clone());
+    setup_notes(&mut commands, &mut meshes, &mut materials, &window, tuning.get());
 }
 
 #[derive(Component)]
