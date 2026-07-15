@@ -22,20 +22,10 @@ jobs:
       with:
         targets: wasm32-unknown-unknown
     
-    - name: Install wasm-bindgen-cli
-      run: cargo install wasm-bindgen-cli
-    
-    - name: Install wasm-opt
+    - name: Prepare
       run: |
-        curl -LO https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz
-        tar -xzf binaryen-version_118-x86_64-linux.tar.gz
-        export PATH="$PWD/binaryen-version_118:$PATH"
-        echo "PATH=$PATH" >> $GITHUB_ENV
-    
-    - name: Cargo Check
-      run: |
-        source "$HOME/.cargo/env"
-        cargo check --target wasm32-unknown-unknown
+        cargo install wasm-bindgen-cli
+        cargo install wasm-opt
     
     - name: Build WASM
       run: |
@@ -44,7 +34,8 @@ jobs:
     
     - name: Optimize WASM
       run: |
-        wasm-opt -Oz --output target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+        wasm-opt -Oz --output optimized.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+        mv optimized.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
     
     - name: Bindgen
       run: |
