@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = "0.18.1"
-bevy_asset = "0.18.1"
+bevy = "0.19.0"
+# bevy_asset автоматически включается через bevy
 rodio = "0.22.2"
