@@ -82,7 +82,7 @@ pub fn main() {
         .init_resource::<GameData>()
         .add_systems(Startup, setup)
         .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter(Tuning), update_fretboard)
+        .add_systems(OnEnter::new(Tuning), update_fretboard)
         .run();
 }
 
@@ -94,7 +94,7 @@ fn main() {
         .init_resource::<GameData>()
         .add_systems(Startup, setup)
         .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter(Tuning), update_fretboard)
+        .add_systems(OnEnter::new(Tuning), update_fretboard)
         .run();
 }
 
