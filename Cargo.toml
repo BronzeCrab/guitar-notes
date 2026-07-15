@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.19.0", features = ["webgl2"] }
+rodio = "0.22"
 rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
 wasm-bindgen = "0.2.126"
 wasm-bindgen-futures = "0.4"
