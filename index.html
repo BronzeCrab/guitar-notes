@@ -84,12 +84,10 @@
     </div>
     
     <script type="module">
-        import init from './pkg/guitar_notes.js';
-        
-        const canvas = document.getElementById('game');
-        
+        import init from './guitar_notes.js';
+
         try {
-            await init(canvas);
+            await init();
             document.getElementById('loading').style.display = 'none';
             document.querySelector('.game-container').style.display = 'block';
         } catch (e) {

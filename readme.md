@@ -13,3 +13,13 @@ This projects is aimed to help guitarists to convert any tabs to any tunning the
 - you can change any string to any note you want, so you can make any tunning you want
 
 - you can play each note on any string and fret
+
+## GitHub Pages
+
+Site: https://bronzecrab.github.io/guitar-notes/
+
+After the Actions workflow deploys, set once in the repo:
+
+**Settings → Pages → Build and deployment → Source → GitHub Actions**
+
+If Source stays on “Deploy from a branch” (`main`), the browser will keep loading the repo root `index.html` and `guitar_notes.js` will 404 even when the workflow is green.

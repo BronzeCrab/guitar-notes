@@ -36,6 +36,8 @@ jobs:
           tool: wasm-opt
 
       - name: Build WASM
+        env:
+          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
         run: cargo build --profile wasm-release --target wasm32-unknown-unknown
 
       - name: Optimize WASM
