@@ -9,6 +9,45 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub fn main() {
+    console_error_panic_hook::set_once();
+    
+    App::new()
+        .add_plugins((
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: WgpuSettings {
+                    backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
+                    ..default()
+                }.into(),
+                ..default()
+            }),
+            MeshPickingPlugin,
+        ))
+        .init_state::<Tuning>()
+        .init_resource::<GameData>()
+        .add_systems(Startup, setup)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
+        .add_systems(OnEnter(Tuning), update_fretboard)
+        .run();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    App::new()
+        .add_plugins((
+            DefaultPlugins,
+            MeshPickingPlugin,
+        ))
+        .init_state::<Tuning>()
+        .init_resource::<GameData>()
+        .add_systems(Startup, setup)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
+        .add_systems(OnEnter(Tuning), update_fretboard)
+        .run();
+}
+
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
 const AMOUNT_OF_FRETS: u8 = 22;
@@ -119,53 +158,6 @@ struct ScoreText;
 struct StreakText;
 #[derive(Component)]
 struct FeedbackText;
-
-// WASM entry point
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub fn main() {
-    console_error_panic_hook::set_once();
-    
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
-                    ..default()
-                }.into(),
-                ..default()
-            }),
-            MeshPickingPlugin,
-        ))
-        .init_state::<Tuning>()
-        .init_resource::<GameData>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter(Tuning), update_fretboard)
-        .run();
-}
-
-// Native entry point
-#[cfg(not(target_arch = "wasm32"))]
-fn main() {
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN),
-                    ..default()
-                }.into(),
-                ..default()
-            }),
-            MeshPickingPlugin,
-        ))
-        .init_state::<Tuning>()
-        .init_resource::<GameData>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter(Tuning), update_fretboard)
-        .run();
-}
 
 fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i8) {
     let hz = 440.0 * 2_f32.powf(half_tones_from_a4 / 12.0);
