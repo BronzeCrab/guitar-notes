@@ -3,10 +3,19 @@ use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
-use rodio::source::{Dither, DitherAlgorithm, FadeIn, FadeOut, SineWave, Source, TakeDuration};
-use rodio::{BitDepth, DeviceSinkBuilder, MixerDeviceSink, Player};
-use std::thread;
+use rodio::mixer::Mixer;
+use rodio::source::{SineWave, Source};
+use rodio::{DeviceSinkBuilder, MixerDeviceSink};
 use std::time::Duration;
+
+/// Keeps the OS audio stream alive for the app lifetime (`cpal::Stream` is `!Send`).
+#[allow(dead_code)]
+struct AudioSinkKeepAlive(MixerDeviceSink);
+
+#[derive(Resource, Clone)]
+struct NoteAudio {
+    mixer: Mixer,
+}
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
@@ -41,7 +50,16 @@ struct Tunning {
 }
 
 fn main() {
+    let mut sink: MixerDeviceSink =
+        DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
+    sink.log_on_drop(false);
+    let note_audio: NoteAudio = NoteAudio {
+        mixer: sink.mixer().clone(),
+    };
+
     App::new()
+        .insert_non_send(AudioSinkKeepAlive(sink))
+        .insert_resource(note_audio)
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
                 render_creation: WgpuSettings {
@@ -299,7 +317,11 @@ fn setup(
     }
 }
 
-fn on_note_click(click: On<Pointer<Click>>, note_name_rect_entity_q: Query<&Note>) {
+fn on_note_click(
+    click: On<Pointer<Click>>,
+    note_name_rect_entity_q: Query<&Note>,
+    audio: Res<NoteAudio>,
+) {
     let event: &Pointer<Click> = On::event(&click);
     let entity: Entity = event.event_target();
     let anote: &Note = note_name_rect_entity_q.get(entity).unwrap();
@@ -308,26 +330,12 @@ fn on_note_click(click: On<Pointer<Click>>, note_name_rect_entity_q: Query<&Note
         anote.name, anote.hz, anote.octave
     );
 
-    let hz_value: f32 = anote.hz; // переменная, которую нужно передать
+    let note_duration: Duration = Duration::from_millis(900);
+    let wave = SineWave::new(anote.hz)
+        .amplify(0.25)
+        .take_duration(note_duration)
+        .fade_in(Duration::from_millis(5))
+        .fade_out(note_duration);
 
-    let _ = thread::spawn(move || {
-        let handle: MixerDeviceSink =
-            DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
-        let player: Player = Player::connect_new(&handle.mixer());
-        // Generate sine wave.
-        let wave: FadeOut<FadeIn<TakeDuration<SineWave>>> = SineWave::new(hz_value)
-            // .amplify(0.2)
-            .take_duration(Duration::from_secs(3))
-            .fade_in(Duration::from_secs(1))
-            .fade_out(Duration::from_secs(1));
-
-        let dithered: Dither<FadeOut<FadeIn<TakeDuration<SineWave>>>> =
-            wave.dither(BitDepth::new(16).unwrap(), DitherAlgorithm::TPDF);
-
-        handle.mixer().add(dithered);
-
-        // The sound plays in a separate audio thread,
-        // so we need to keep the main thread alive while it's playing.
-        std::thread::sleep(Duration::from_secs(3));
-    });
+    audio.mixer.add(wave);
 }
