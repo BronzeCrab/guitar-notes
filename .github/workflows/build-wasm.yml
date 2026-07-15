@@ -1,14 +1,12 @@
-name: Build and Deploy to GitHub Pages
+name: Build WASM for GitHub Pages
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build:
+  build-wasm:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,11 +23,17 @@ jobs:
         version: 'latest'
     
     - name: Build WASM
-      run: wasm-pack build --target web --out-dir pkg || echo "WASM build failed, using JS fallback"
+      run: wasm-pack build --target web --out-dir pkg
+    
+    - name: Upload WASM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wasm-build
+        path: pkg/
     
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: .
-        enable_jekyll: false
+        publish_dir: ./pkg
+        keep_files: true
