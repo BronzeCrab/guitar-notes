@@ -3,8 +3,6 @@ name: Build and Deploy to GitHub Pages
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -33,7 +31,7 @@ jobs:
         version: 'latest'
     
     - name: Build WASM
-      run: wasm-pack build --target web --out-dir pkg || echo "WASM build failed, using JS fallback"
+      run: wasm-pack build --target web --out-dir pkg
     
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3

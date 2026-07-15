@@ -115,27 +115,31 @@ struct StreakText;
 #[derive(Component)]
 struct FeedbackText;
 
-#[wasm_bindgen(start)]
-pub fn main() {
+#[wasm_bindgen]
+pub fn run(canvas: &web_sys::HtmlCanvasElement) -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
     
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
+    wasm_bindgen_futures::spawn_local(async {
+        App::new()
+            .add_plugins((
+                DefaultPlugins.set(RenderPlugin {
+                    render_creation: WgpuSettings {
+                        backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
+                        ..default()
+                    }.into(),
                     ..default()
-                }.into(),
-                ..default()
-            }),
-            MeshPickingPlugin,
-        ))
-        .init_state::<Tuning>()
-        .init_resource::<GameData>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-        .add_systems(OnEnter(Tuning), update_fretboard)
-        .run();
+                }),
+                MeshPickingPlugin,
+            ))
+            .init_state::<Tuning>()
+            .init_resource::<GameData>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
+            .add_systems(OnEnter(Tuning), update_fretboard)
+            .run();
+    });
+    
+    Ok(())
 }
 
 fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i8) {
