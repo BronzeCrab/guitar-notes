@@ -2,7 +2,12 @@ use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use rand::Rng;
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlCanvasElement;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
@@ -115,31 +120,51 @@ struct StreakText;
 #[derive(Component)]
 struct FeedbackText;
 
-#[wasm_bindgen]
-pub fn run(canvas: &web_sys::HtmlCanvasElement) -> Result<(), JsValue> {
+// WASM entry point
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub fn main() {
     console_error_panic_hook::set_once();
     
-    wasm_bindgen_futures::spawn_local(async {
-        App::new()
-            .add_plugins((
-                DefaultPlugins.set(RenderPlugin {
-                    render_creation: WgpuSettings {
-                        backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
-                        ..default()
-                    }.into(),
+    App::new()
+        .add_plugins((
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: WgpuSettings {
+                    backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
                     ..default()
-                }),
-                MeshPickingPlugin,
-            ))
-            .init_state::<Tuning>()
-            .init_resource::<GameData>()
-            .add_systems(Startup, setup)
-            .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
-            .add_systems(OnEnter(Tuning), update_fretboard)
-            .run();
-    });
-    
-    Ok(())
+                }.into(),
+                ..default()
+            }),
+            MeshPickingPlugin,
+        ))
+        .init_state::<Tuning>()
+        .init_resource::<GameData>()
+        .add_systems(Startup, setup)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
+        .add_systems(OnEnter(Tuning), update_fretboard)
+        .run();
+}
+
+// Native entry point
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    App::new()
+        .add_plugins((
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: WgpuSettings {
+                    backends: Some(Backends::VULKAN),
+                    ..default()
+                }.into(),
+                ..default()
+            }),
+            MeshPickingPlugin,
+        ))
+        .init_state::<Tuning>()
+        .init_resource::<GameData>()
+        .add_systems(Startup, setup)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
+        .add_systems(OnEnter(Tuning), update_fretboard)
+        .run();
 }
 
 fn get_note_name(half_tones_from_a4: f32, open_hz: f32) -> (&'static str, f32, i8) {
