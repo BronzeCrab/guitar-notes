@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
-use bevy::render::mesh::{Mesh, PrimitiveTopology, RenderAssetUsages};
+use bevy::render::mesh::Mesh;
 use rand::Rng;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Hash, States, Resource)]
 pub enum Tuning {
     #[default]
     Standard,
@@ -228,7 +228,7 @@ fn setup_notes(
             .map(|i| [x, i as f32 * GAP - GAP * 2.5, 0.0])
             .collect();
         
-        let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::RENDER_WORLD);
+        let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::LineStrip, bevy::asset::RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         commands.spawn((
             Mesh2d(meshes.add(mesh)),
@@ -241,7 +241,7 @@ fn setup_notes(
         let vertices: Vec<[f32; 3]> =
             vec![[line_start_x, y, 0.0], [line_end_x + GAP * 42.0, y, 0.0]];
         
-        let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::RENDER_WORLD);
+        let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::LineStrip, bevy::asset::RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         commands.spawn((
             Mesh2d(meshes.add(mesh)),
@@ -290,7 +290,7 @@ fn get_note_at_fret(open_hz: f32, fret: u8) -> (&'static str, f32, i8) {
             let dist = (hz - target_hz).abs();
             if dist < min_dist {
                 min_dist = dist;
-                closest = (*name, hz);
+                closest = (name, hz);
             }
         }
     }
@@ -482,7 +482,7 @@ fn update_fretboard(
         commands.entity(entity).despawn();
     }
     
-    setup_notes(&mut commands, &mut meshes, &mut materials, &window, tuning.get());
+    setup_notes(&mut commands, &mut meshes, &mut materials, &window, *tuning);
 }
 
 #[derive(Component)]
