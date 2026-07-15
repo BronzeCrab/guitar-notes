@@ -1,3 +1,4 @@
+#![no_main]
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
@@ -63,8 +64,8 @@ pub struct FretNote {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub fn main() {
+#[unsafe(no_mangle)]
+pub extern "C" fn main() {
     console_error_panic_hook::set_once();
     
     App::new()
