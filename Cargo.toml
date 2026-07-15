@@ -18,3 +18,10 @@ getrandom = { version = "0.2", features = ["js"] }
 [[bin]]
 name = "guitar-notes"
 path = "src/main.rs"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
