@@ -2,7 +2,12 @@ use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::*;
 use rand::Rng;
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlCanvasElement;
 
 const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
@@ -115,6 +120,8 @@ struct StreakText;
 #[derive(Component)]
 struct FeedbackText;
 
+// WASM entry point
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
 pub fn main() {
     console_error_panic_hook::set_once();
@@ -124,6 +131,28 @@ pub fn main() {
             DefaultPlugins.set(RenderPlugin {
                 render_creation: WgpuSettings {
                     backends: Some(Backends::VULKAN | Backends::BROWSER_WEBGPU),
+                    ..default()
+                }.into(),
+                ..default()
+            }),
+            MeshPickingPlugin,
+        ))
+        .init_state::<Tuning>()
+        .init_resource::<GameData>()
+        .add_systems(Startup, setup)
+        .add_systems(Update, (handle_key_input, update_learning_ui, update_score_ui))
+        .add_systems(OnEnter(Tuning), update_fretboard)
+        .run();
+}
+
+// Native entry point
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    App::new()
+        .add_plugins((
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: WgpuSettings {
+                    backends: Some(Backends::VULKAN),
                     ..default()
                 }.into(),
                 ..default()

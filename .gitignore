@@ -1,8 +1,6 @@
 # Rust
-/Cargo.toml
 /target
 /.idea/
-Cargo.lock
 
 # Python
 /__pycache__/
@@ -13,10 +11,6 @@ Cargo.lock
 env/
 *.egg-info/
 /dist/
-
-# WASM build output (коммитим бинарники)
-# pkg/ - раскомментировать после первого билда
-# !/pkg/.gitkeep
 
 # OS
 .DS_Store
