@@ -85,11 +85,9 @@
     
     <script type="module">
         import init from './guitar_notes.js';
-        
-        const canvas = document.getElementById('game');
-        
+
         try {
-            await init(canvas);
+            await init();
             document.getElementById('loading').style.display = 'none';
             document.querySelector('.game-container').style.display = 'block';
         } catch (e) {

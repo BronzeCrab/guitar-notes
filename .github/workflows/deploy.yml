@@ -2,50 +2,75 @@ name: Build and Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main, master, feature/wasm-github-pages ]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Configure git
-      run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-unknown-unknown
-    
-    - name: Prepare
-      run: |
-        cargo install wasm-bindgen-cli
-        cargo install wasm-opt
-    
-    - name: Build WASM
-      run: |
-        source "$HOME/.cargo/env"
-        cargo build --profile wasm-release --target wasm32-unknown-unknown
-    
-    - name: Optimize WASM
-      run: |
-        wasm-opt -Oz --output optimized.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
-        mv optimized.wasm target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
-    
-    - name: Bindgen
-      run: |
-        wasm-bindgen --out-name guitar_notes --out-dir www --target web target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
-    
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./www
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli
+
+      - name: Install wasm-opt
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-opt
+
+      - name: Build WASM
+        run: cargo build --profile wasm-release --target wasm32-unknown-unknown
+
+      - name: Optimize WASM
+        run: |
+          wasm-opt -Oz \
+            --output target/wasm32-unknown-unknown/wasm-release/guitar-notes.opt.wasm \
+            target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+          mv target/wasm32-unknown-unknown/wasm-release/guitar-notes.opt.wasm \
+             target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+
+      - name: Bindgen
+        run: |
+          wasm-bindgen \
+            --out-name guitar_notes \
+            --out-dir www \
+            --target web \
+            target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+
+      - name: Prepare www
+        run: |
+          touch www/.nojekyll
+          ls -la www
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

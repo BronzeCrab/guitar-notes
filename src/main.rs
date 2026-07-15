@@ -1,8 +1,6 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
-use bevy::render::RenderPlugin;
-use bevy::render::settings::*;
 use rodio::mixer::Mixer;
 use rodio::source::{SineWave, Source};
 use rodio::{DeviceSinkBuilder, MixerDeviceSink};
@@ -60,17 +58,7 @@ fn main() {
     App::new()
         .insert_non_send(AudioSinkKeepAlive(sink))
         .insert_resource(note_audio)
-        .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN),
-                    ..default()
-                }
-                .into(),
-                ..default()
-            }),
-            MeshPickingPlugin,
-        ))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_systems(Startup, setup)
         .run();
 }
