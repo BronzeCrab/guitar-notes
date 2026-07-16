@@ -29,9 +29,8 @@ struct FretboardLayout {
     line_start_x: f32,
 }
 
-const NOTES: [&'static str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
+const NOTES: [&str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
 const GAP: f32 = 50.0;
-const CUSTOM_WHITE: Color = Color::srgba(1.0, 1.0, 1.0, 0.5);
 const GREY: Color = Color::srgba(0.6, 0.6, 0.6, 1.0);
 const AMOUNT_OF_FRETS: u8 = 22;
 const FONT_SIZE: f32 = 22.0;
@@ -478,8 +477,8 @@ fn spawn_tuning_labels_and_notes(
                 Note {
                     name: note,
                     hz: note_hz,
-                    octave: octave,
-                    half_tones_from_a_4: half_tones_from_a_4,
+                    octave,
+                    half_tones_from_a_4,
                 },
                 NoteVisual {
                     color_index: note_ind,
@@ -526,6 +525,7 @@ fn toggle_tuning_menu(
     }
 }
 
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn apply_tuning_selection(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
