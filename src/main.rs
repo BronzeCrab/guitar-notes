@@ -286,21 +286,31 @@ fn setup(
         }
     }
 
-    // Рисуем контуры гитары
-    for i in 0..2 {
-        let mut x: Option<f32> = None;
-        let mut y: Option<f32> = None;
-        if i == 0 {
-            x = Some(0.0);
-            y = Some(-0.5 * GAP);
-        } else if i == 1 {
-            x = Some(0.0);
-            y = Some(last_str_y.unwrap() + 0.5 * GAP);
-        }
+    // Рисуем контуры гитары (рамка: верх, низ, лево, право)
+    let outline_left: f32 = line_start_x;
+    let outline_right: f32 = line_end_x;
+    let outline_bottom: f32 = -0.5 * GAP;
+    let outline_top: f32 = last_str_y.unwrap() + 0.5 * GAP;
+    let outline_width: f32 = outline_right - outline_left;
+    let outline_height: f32 = outline_top - outline_bottom;
+    let outline_mid_y: f32 = (outline_top + outline_bottom) * 0.5;
+    const OUTLINE_THICKNESS: f32 = 3.0;
+    let outline_material = materials.add(ColorMaterial::from(GUITAR_OUTLINE_COLOR));
+
+    // верх и низ
+    for y in [outline_bottom, outline_top] {
         commands.spawn((
-            Mesh2d(meshes.add(Rectangle::new(window_width - 2.0 * GAP, 3.0))),
-            MeshMaterial2d(materials.add(ColorMaterial::from(GUITAR_OUTLINE_COLOR))),
-            Transform::from_xyz(x.unwrap(), y.unwrap(), 0.0),
+            Mesh2d(meshes.add(Rectangle::new(outline_width, OUTLINE_THICKNESS))),
+            MeshMaterial2d(outline_material.clone()),
+            Transform::from_xyz(0.0, y, 0.0),
+        ));
+    }
+    // лево и право
+    for x in [outline_left, outline_right] {
+        commands.spawn((
+            Mesh2d(meshes.add(Rectangle::new(OUTLINE_THICKNESS, outline_height))),
+            MeshMaterial2d(outline_material.clone()),
+            Transform::from_xyz(x, outline_mid_y, 0.0),
         ));
     }
 }
