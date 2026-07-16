@@ -3,6 +3,10 @@ name = "guitar-notes"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "guitar_notes"
+path = "src/lib.rs"
+
 [dependencies]
 bevy = { version = "0.19.0", features = ["webgl2"] }
 rodio = "0.22"

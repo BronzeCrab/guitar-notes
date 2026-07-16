@@ -25,6 +25,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Run tests
+        run: cargo test
+
       - name: Install wasm-bindgen-cli
         uses: taiki-e/install-action@v2
         with:
