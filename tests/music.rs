@@ -1,6 +1,6 @@
 use guitar_notes::music::{
-    detect_power_chord, format_note_lines, guitar_string_number, note_name_for_pitch_class,
-    pitch_class, NotePlacement,
+    NotePlacement, detect_power_chord, format_note_lines, guitar_string_number,
+    note_name_for_pitch_class, pitch_class,
 };
 
 #[test]

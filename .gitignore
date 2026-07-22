@@ -15,3 +15,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+/.cargo/*
+/www/guitar_notes.js
+/www/.nojekyll
+/www/guitar_notes.d.ts
+/www/guitar_notes_bg.*

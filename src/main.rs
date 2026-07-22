@@ -1,9 +1,7 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
-use guitar_notes::music::{
-    detect_power_chord, format_note_lines, NotePlacement,
-};
+use guitar_notes::music::{NotePlacement, detect_power_chord, format_note_lines};
 use rodio::mixer::Mixer;
 use rodio::source::{SineWave, Source};
 use rodio::{DeviceSinkBuilder, MixerDeviceSink};
@@ -27,6 +25,8 @@ struct CurrentTuning {
 #[derive(Resource)]
 struct FretboardLayout {
     line_start_x: f32,
+    /// World Y of string index 0 (low E in Standard); higher indices go up by GAP.
+    string_y0: f32,
 }
 
 const NOTES: [&str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
@@ -46,6 +46,10 @@ const COLORS: [Color; 7] = [
     Color::srgba(0.0, 0.0, 1.0, 1.0), // Синий (Blue)
     Color::srgba(0.5, 0.0, 1.0, 1.0), // Фиолетовый (Purple/Violet)
 ];
+
+/// Amber highlight for selected notes (matches site accent #feca57).
+const SELECTED_NOTE_COLOR: Color = Color::srgb(1.0, 0.78, 0.16);
+const SELECTED_NOTE_TEXT_COLOR: Color = Color::srgb(0.12, 0.1, 0.05);
 
 const MAX_SELECTED_NOTES: usize = 6;
 const NOTE_PLAY_DURATION_MS: u64 = 900;
@@ -99,6 +103,9 @@ struct ChordInfoText;
 
 #[derive(Component)]
 struct PowerChordPopup;
+
+#[derive(Component)]
+struct SelectionPopupTitle;
 
 #[derive(Component)]
 struct PowerChordPopupText;
@@ -214,20 +221,6 @@ fn setup(
 
     let tunning: &Tunning = tuning(current_tuning.index);
 
-    commands.spawn((
-        Text::new("Guitar notes"),
-        TextFont {
-            font_size: FontSize::Px(FONT_SIZE),
-            ..default()
-        },
-        TextLayout::justify(Justify::Right),
-        Node {
-            justify_self: JustifySelf::Center,
-            ..default()
-        },
-        Label,
-    ));
-
     spawn_tuning_dropdown(&mut commands, current_tuning.index);
     spawn_chord_controls(&mut commands);
     spawn_power_chord_popup(&mut commands);
@@ -235,12 +228,17 @@ fn setup(
     let window_width: f32 = window.width();
     let line_start_x: f32 = -window_width / 2.0 + GAP;
     let line_end_x: f32 = window_width / 2.0 - GAP;
-    commands.insert_resource(FretboardLayout { line_start_x });
+    // Center the fretboard vertically so top string is not under the tuning UI.
+    let string_y0: f32 = -((tunning.notes.len() - 1) as f32 * GAP) * 0.5;
+    commands.insert_resource(FretboardLayout {
+        line_start_x,
+        string_y0,
+    });
 
     let mut last_str_y: Option<f32> = None;
     // Рисуем горизонтальные линии - "струны":
     for i in 0..tunning.notes.len() {
-        let y_of_line: f32 = i as f32 * GAP;
+        let y_of_line: f32 = string_y0 + i as f32 * GAP;
         if i == tunning.notes.len() - 1 {
             last_str_y = Some(y_of_line);
         }
@@ -254,13 +252,14 @@ fn setup(
         commands.spawn((
             Mesh2d(meshes.add(line_mesh)),
             MeshMaterial2d(materials.add(Color::WHITE)),
+            Pickable::IGNORE,
         ));
     }
 
     // Рисуем вертикальные линии - "разделители ладов":
     let mut vert_line_start_x: f32 = line_start_x + GAP / 2.0;
     if let Some(value) = last_str_y {
-        let vert_line_start_y: f32 = -GAP / 2.0;
+        let vert_line_start_y: f32 = string_y0 - GAP / 2.0;
         let vert_line_end_y: f32 = value + GAP / 2.0;
         for _i in 0..AMOUNT_OF_FRETS {
             let vertices: Vec<[f32; 3]> = vec![
@@ -275,6 +274,7 @@ fn setup(
             commands.spawn((
                 Mesh2d(meshes.add(line_mesh)),
                 MeshMaterial2d(materials.add(GREY)),
+                Pickable::IGNORE,
             ));
             vert_line_start_x += GAP;
         }
@@ -286,12 +286,13 @@ fn setup(
         &mut materials,
         tunning,
         line_start_x,
+        string_y0,
     );
 
     // Рисуем контуры гитары (рамка: верх, низ, лево, право)
     let outline_left: f32 = line_start_x;
     let outline_right: f32 = line_end_x;
-    let outline_bottom: f32 = -0.5 * GAP;
+    let outline_bottom: f32 = string_y0 - 0.5 * GAP;
     let outline_top: f32 = last_str_y.unwrap() + 0.5 * GAP;
     let outline_width: f32 = outline_right - outline_left;
     let outline_height: f32 = outline_top - outline_bottom;
@@ -303,7 +304,8 @@ fn setup(
         commands.spawn((
             Mesh2d(meshes.add(Rectangle::new(outline_width, OUTLINE_THICKNESS))),
             MeshMaterial2d(outline_material.clone()),
-            Transform::from_xyz(0.0, y, 0.0),
+            Transform::from_xyz((outline_left + outline_right) * 0.5, y, 0.0),
+            Pickable::IGNORE,
         ));
     }
     for x in [outline_left, outline_right] {
@@ -311,6 +313,7 @@ fn setup(
             Mesh2d(meshes.add(Rectangle::new(OUTLINE_THICKNESS, outline_height))),
             MeshMaterial2d(outline_material.clone()),
             Transform::from_xyz(x, outline_mid_y, 0.0),
+            Pickable::IGNORE,
         ));
     }
 }
@@ -322,13 +325,14 @@ fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize) {
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(16.0),
+                right: Val::Px(16.0),
                 top: Val::Px(16.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(4.0),
                 ..default()
             },
             ZIndex(10),
+            Pickable::IGNORE,
         ))
         .with_children(|parent| {
             parent
@@ -406,9 +410,10 @@ fn spawn_tuning_labels_and_notes(
     materials: &mut ResMut<Assets<ColorMaterial>>,
     tunning: &Tunning,
     line_start_x: f32,
+    string_y0: f32,
 ) {
     for (i, open) in tunning.notes.iter().enumerate() {
-        let y_of_line: f32 = i as f32 * GAP;
+        let y_of_line: f32 = string_y0 + i as f32 * GAP;
         commands.spawn((
             Text2d::new(open.name),
             TextFont {
@@ -418,12 +423,13 @@ fn spawn_tuning_labels_and_notes(
             TextColor(Color::WHITE),
             Transform::from_xyz(line_start_x - GAP / 2.0, y_of_line, 0.0),
             OpenStringLabel,
+            Pickable::IGNORE,
         ));
     }
 
     let mut string_i: usize = 0;
     let mut open: &Note = &tunning.notes[string_i];
-    let mut y_of_note_name: f32 = string_i as f32 * GAP;
+    let mut y_of_note_name: f32 = string_y0 + string_i as f32 * GAP;
     let mut divisor: f32 = 2_f32.powi((4 - open.octave) as i32);
     let mut half_tones_from_a_4: f32 = open.half_tones_from_a_4;
     let mut octave: i8 = open.octave;
@@ -454,7 +460,7 @@ fn spawn_tuning_labels_and_notes(
                 break;
             }
             open = &tunning.notes[string_i];
-            y_of_note_name = string_i as f32 * GAP;
+            y_of_note_name = string_y0 + string_i as f32 * GAP;
             divisor = 2_f32.powi((4 - open.octave) as i32);
             half_tones_from_a_4 = open.half_tones_from_a_4;
             octave = open.octave;
@@ -472,7 +478,7 @@ fn spawn_tuning_labels_and_notes(
             .spawn((
                 Mesh2d(meshes.add(Rectangle::new(RECT_SIZE, RECT_SIZE))),
                 MeshMaterial2d(materials.add(ColorMaterial::from(COLORS[note_ind]))),
-                Transform::from_xyz(x_of_note_name, y_of_note_name, 0.0),
+                Transform::from_xyz(x_of_note_name, y_of_note_name, 1.0),
                 Visibility::Visible,
                 Note {
                     name: note,
@@ -498,6 +504,7 @@ fn spawn_tuning_labels_and_notes(
                 },
                 TextColor(Color::WHITE),
                 Visibility::Visible,
+                Pickable::IGNORE,
             ))
             .observe(on_note_click);
 
@@ -584,6 +591,7 @@ fn apply_tuning_selection(
             &mut materials,
             tunning,
             layout.line_start_x,
+            layout.string_y0,
         );
 
         for mut text in &mut texts.p1() {
@@ -639,12 +647,13 @@ fn spawn_power_chord_popup(commands: &mut Commands) {
                 ))
                 .with_children(|panel| {
                     panel.spawn((
-                        Text::new("Power chord"),
+                        Text::new(""),
                         TextFont {
                             font_size: FontSize::Px(FONT_SIZE),
                             ..default()
                         },
                         TextColor(Color::WHITE),
+                        SelectionPopupTitle,
                     ));
 
                     panel.spawn((
@@ -662,14 +671,20 @@ fn spawn_power_chord_popup(commands: &mut Commands) {
         });
 }
 
-fn selected_note_color(color_index: usize) -> Color {
-    let base = COLORS[color_index].to_srgba();
-    Color::srgba(
-        base.red * 0.45 + 0.55,
-        base.green * 0.45 + 0.55,
-        base.blue * 0.45 + 0.55,
-        1.0,
-    )
+fn set_note_label_color(
+    entity: Entity,
+    color: Color,
+    children_q: &Query<&Children>,
+    text_colors: &mut Query<&mut TextColor>,
+) {
+    let Ok(children) = children_q.get(entity) else {
+        return;
+    };
+    for child in children.iter() {
+        if let Ok(mut text_color) = text_colors.get_mut(child) {
+            *text_color = TextColor(color);
+        }
+    }
 }
 
 fn spawn_chord_controls(commands: &mut Commands) {
@@ -677,7 +692,7 @@ fn spawn_chord_controls(commands: &mut Commands) {
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(16.0),
+                right: Val::Px(16.0),
                 bottom: Val::Px(16.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(8.0),
@@ -764,9 +779,19 @@ fn on_note_click(
         &MeshMaterial2d<ColorMaterial>,
         Option<&SelectedNote>,
     )>,
+    parents: Query<&ChildOf>,
+    children_q: Query<&Children>,
+    mut text_colors: Query<&mut TextColor>,
 ) {
     let event: &Pointer<Click> = On::event(&click);
-    let entity: Entity = event.event_target();
+    let mut entity: Entity = event.event_target();
+    // Clicks may hit the Text2d child; walk up to the note mesh entity.
+    while notes_q.get(entity).is_err() {
+        let Ok(child_of) = parents.get(entity) else {
+            return;
+        };
+        entity = child_of.parent();
+    }
     let Ok((visual, material, selected_marker)) = notes_q.get(entity) else {
         return;
     };
@@ -776,6 +801,7 @@ fn on_note_click(
         if let Some(mut mat) = materials.get_mut(material.id()) {
             mat.color = COLORS[visual.color_index];
         }
+        set_note_label_color(entity, Color::WHITE, &children_q, &mut text_colors);
         return;
     }
 
@@ -787,16 +813,26 @@ fn on_note_click(
     let material_id = material.id();
     commands.entity(entity).insert(SelectedNote);
     if let Some(mut mat) = materials.get_mut(material_id) {
-        mat.color = selected_note_color(visual.color_index);
+        mat.color = SELECTED_NOTE_COLOR;
     }
+    set_note_label_color(
+        entity,
+        SELECTED_NOTE_TEXT_COLOR,
+        &children_q,
+        &mut text_colors,
+    );
 }
 
+#[allow(clippy::type_complexity)]
 fn play_selected_notes(
     interactions: Query<&Interaction, (Changed<Interaction>, With<PlayButton>)>,
     selected: Query<(&Note, &FretPosition), With<SelectedNote>>,
     audio: Res<NoteAudio>,
     mut popups: Query<&mut Visibility, With<PowerChordPopup>>,
-    mut popup_texts: Query<&mut Text, With<PowerChordPopupText>>,
+    mut popup_texts: ParamSet<(
+        Query<&mut Text, With<SelectionPopupTitle>>,
+        Query<&mut Text, With<PowerChordPopupText>>,
+    )>,
 ) {
     for interaction in &interactions {
         if *interaction != Interaction::Pressed {
@@ -815,16 +851,19 @@ fn play_selected_notes(
         let names: Vec<&str> = entries.iter().map(|(note, _)| note.name).collect();
         let mut placements = note_placements(&entries);
         let note_lines = format_note_lines(&mut placements);
-        let body = if let Some(info) = detect_power_chord(&names) {
-            format!(
-                "You played {} (power chord).\n\nWhy: root + fifth (no third).\n\nNotes:\n{}",
-                info.title, note_lines
+        let (title, body) = if let Some(info) = detect_power_chord(&names) {
+            (
+                info.title.clone(),
+                format!("Why: root + fifth (no third).\n\nNotes:\n{note_lines}"),
             )
         } else {
-            format!("Played notes:\n{note_lines}")
+            ("Played notes".to_string(), note_lines)
         };
 
-        for mut text in &mut popup_texts {
+        for mut text in &mut popup_texts.p0() {
+            *text = Text::new(title.clone());
+        }
+        for mut text in &mut popup_texts.p1() {
             *text = Text::new(body.clone());
         }
         for mut visibility in &mut popups {
@@ -859,7 +898,7 @@ fn explain_selection(
 
         let entries: Vec<(&Note, &FretPosition)> = selected.iter().collect();
         let message = if entries.is_empty() {
-            "Select notes first (root + fifth for a power chord).".to_string()
+            "Select notes first, then press Explain.".to_string()
         } else {
             let names: Vec<&str> = entries.iter().map(|(note, _)| note.name).collect();
             let mut placements = note_placements(&entries);
@@ -877,11 +916,14 @@ fn explain_selection(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn clear_selection(
     interactions: Query<&Interaction, (Changed<Interaction>, With<ClearButton>)>,
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     selected: Query<(Entity, &NoteVisual, &MeshMaterial2d<ColorMaterial>), With<SelectedNote>>,
+    children_q: Query<&Children>,
+    mut text_colors: Query<&mut TextColor>,
     mut info_texts: Query<&mut Text, With<ChordInfoText>>,
     mut popups: Query<&mut Visibility, With<PowerChordPopup>>,
 ) {
@@ -894,6 +936,7 @@ fn clear_selection(
             if let Some(mut mat) = materials.get_mut(material.id()) {
                 mat.color = COLORS[visual.color_index];
             }
+            set_note_label_color(entity, Color::WHITE, &children_q, &mut text_colors);
             commands.entity(entity).remove::<SelectedNote>();
         }
 

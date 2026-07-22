@@ -82,11 +82,7 @@ pub fn guitar_string_number(string_index: u8) -> u8 {
 }
 
 pub fn format_note_lines(entries: &mut [NotePlacement]) -> String {
-    entries.sort_by(|a, b| {
-        a.hz
-            .partial_cmp(&b.hz)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    entries.sort_by(|a, b| a.hz.partial_cmp(&b.hz).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut lines = String::new();
     for note in entries.iter() {

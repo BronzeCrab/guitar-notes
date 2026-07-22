@@ -23,3 +23,8 @@ After the Actions workflow deploys, set once in the repo:
 **Settings → Pages → Build and deployment → Source → GitHub Actions**
 
 If Source stays on “Deploy from a branch” (`main`), the browser will keep loading the repo root `index.html` and `guitar_notes.js` will 404 even when the workflow is green.
+
+How to run locally wasm:
+```ps1
+.\serve-wasm.ps1
+```

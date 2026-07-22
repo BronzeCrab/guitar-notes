@@ -15,7 +15,10 @@ wasm-bindgen = "0.2.126"
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
 wee_alloc = "0.4"
-# wasm32-unknown-unknown: getrandom needs an explicit JS backend (pulled in by bevy/rand)
+
+# getrandom's wasm_js/js backends must NOT be enabled for native targets
+# (compile_error on Windows/Linux/macOS). Activate only for wasm builds.
+[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
