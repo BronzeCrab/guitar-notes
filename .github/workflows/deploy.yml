@@ -25,6 +25,16 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            pkg-config \
+            libasound2-dev \
+            libudev-dev \
+            libwayland-dev \
+            libxkbcommon-dev
+
       - name: Check
         run: cargo check
 
