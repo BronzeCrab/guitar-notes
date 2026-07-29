@@ -54,9 +54,11 @@ const SELECTED_NOTE_TEXT_COLOR: Color = Color::srgb(0.12, 0.1, 0.05);
 const MAX_SELECTED_NOTES: usize = 6;
 const NOTE_PLAY_DURATION_MS: u64 = 900;
 /// World-space lift so the fretboard sits above the bottom chord panel.
-const CHORD_PANEL_CLEARANCE_Y: f32 = 150.0;
-const CHORD_INFO_MAX_HEIGHT_PX: f32 = 96.0;
+const CHORD_PANEL_CLEARANCE_Y: f32 = 170.0;
+const CHORD_INFO_MAX_HEIGHT_PX: f32 = 80.0;
 const CHORD_PANEL_MAX_WIDTH_PX: f32 = 480.0;
+/// Keep the panel inside the canvas (avoids clipping on rounded/wasm edges).
+const CHORD_PANEL_INSET_PX: f32 = 20.0;
 
 #[derive(Component, Clone)]
 struct Note {
@@ -697,11 +699,11 @@ fn spawn_chord_controls(commands: &mut Commands) {
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                bottom: Val::Px(0.0),
+                left: Val::Px(CHORD_PANEL_INSET_PX),
+                right: Val::Px(CHORD_PANEL_INSET_PX),
+                bottom: Val::Px(CHORD_PANEL_INSET_PX),
                 justify_content: JustifyContent::Center,
-                padding: UiRect::all(Val::Px(12.0)),
+                padding: UiRect::ZERO,
                 ..default()
             },
             ZIndex(10),
@@ -714,8 +716,10 @@ fn spawn_chord_controls(commands: &mut Commands) {
                     row_gap: Val::Px(8.0),
                     max_width: Val::Px(CHORD_PANEL_MAX_WIDTH_PX),
                     width: Val::Percent(100.0),
+                    max_height: Val::Px(160.0),
                     padding: UiRect::all(Val::Px(12.0)),
                     border: UiRect::all(Val::Px(1.0)),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.92)),
@@ -727,6 +731,7 @@ fn spawn_chord_controls(commands: &mut Commands) {
                         flex_direction: FlexDirection::Row,
                         column_gap: Val::Px(8.0),
                         flex_wrap: FlexWrap::Wrap,
+                        flex_shrink: 0.0,
                         ..default()
                     },))
                     .with_children(|row| {
@@ -746,6 +751,7 @@ fn spawn_chord_controls(commands: &mut Commands) {
                         max_width: Val::Percent(100.0),
                         max_height: Val::Px(CHORD_INFO_MAX_HEIGHT_PX),
                         overflow: Overflow::scroll_y(),
+                        flex_shrink: 1.0,
                         ..default()
                     },
                     ChordInfoText,
