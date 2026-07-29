@@ -53,6 +53,10 @@ const SELECTED_NOTE_TEXT_COLOR: Color = Color::srgb(0.12, 0.1, 0.05);
 
 const MAX_SELECTED_NOTES: usize = 6;
 const NOTE_PLAY_DURATION_MS: u64 = 900;
+/// World-space lift so the fretboard sits above the bottom chord panel.
+const CHORD_PANEL_CLEARANCE_Y: f32 = 150.0;
+const CHORD_INFO_MAX_HEIGHT_PX: f32 = 96.0;
+const CHORD_PANEL_MAX_WIDTH_PX: f32 = 480.0;
 
 #[derive(Component, Clone)]
 struct Note {
@@ -228,8 +232,9 @@ fn setup(
     let window_width: f32 = window.width();
     let line_start_x: f32 = -window_width / 2.0 + GAP;
     let line_end_x: f32 = window_width / 2.0 - GAP;
-    // Center the fretboard vertically so top string is not under the tuning UI.
-    let string_y0: f32 = -((tunning.notes.len() - 1) as f32 * GAP) * 0.5;
+    // Center the fretboard, then lift it so the bottom chord panel does not cover notes.
+    let string_y0: f32 =
+        -((tunning.notes.len() - 1) as f32 * GAP) * 0.5 + CHORD_PANEL_CLEARANCE_Y * 0.5;
     commands.insert_resource(FretboardLayout {
         line_start_x,
         string_y0,
@@ -692,43 +697,60 @@ fn spawn_chord_controls(commands: &mut Commands) {
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                right: Val::Px(16.0),
-                bottom: Val::Px(16.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(8.0),
-                max_width: Val::Px(320.0),
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
                 padding: UiRect::all(Val::Px(12.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.85)),
             ZIndex(10),
+            Pickable::IGNORE,
         ))
-        .with_children(|parent| {
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(8.0),
-                    ..default()
-                },))
-                .with_children(|row| {
-                    spawn_action_button(row, "Play", PlayButton);
-                    spawn_action_button(row, "Explain", ExplainButton);
-                    spawn_action_button(row, "Clear", ClearButton);
-                });
-
-            parent.spawn((
-                Text::new("Select up to 6 notes, then Play or Explain."),
-                TextFont {
-                    font_size: FontSize::Px(16.0),
-                    ..default()
-                },
-                TextColor(Color::srgb(0.85, 0.85, 0.9)),
+        .with_children(|bar| {
+            bar.spawn((
                 Node {
-                    max_width: Val::Px(296.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(8.0),
+                    max_width: Val::Px(CHORD_PANEL_MAX_WIDTH_PX),
+                    width: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(12.0)),
+                    border: UiRect::all(Val::Px(1.0)),
                     ..default()
                 },
-                ChordInfoText,
-            ));
+                BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.92)),
+                BorderColor::all(Color::srgb(0.45, 0.45, 0.5)),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(8.0),
+                        flex_wrap: FlexWrap::Wrap,
+                        ..default()
+                    },))
+                    .with_children(|row| {
+                        spawn_action_button(row, "Play", PlayButton);
+                        spawn_action_button(row, "Explain", ExplainButton);
+                        spawn_action_button(row, "Clear", ClearButton);
+                    });
+
+                parent.spawn((
+                    Text::new("Select up to 6 notes, then Play or Explain."),
+                    TextFont {
+                        font_size: FontSize::Px(16.0),
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.85, 0.85, 0.9)),
+                    Node {
+                        max_width: Val::Percent(100.0),
+                        max_height: Val::Px(CHORD_INFO_MAX_HEIGHT_PX),
+                        overflow: Overflow::scroll_y(),
+                        ..default()
+                    },
+                    ChordInfoText,
+                ));
+            });
         });
 }
 

@@ -38,18 +38,115 @@
             margin: 20px;
             color: #feca57;
         }
+        #audio-gate {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.65);
+            padding: 20px;
+        }
+        #audio-gate .panel {
+            background: #282833;
+            border: 1px solid #737380;
+            border-radius: 12px;
+            padding: 28px 32px;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        }
+        #audio-gate h2 {
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        #audio-gate p {
+            color: #d9d9e0;
+            font-size: 1rem;
+            line-height: 1.45;
+            margin-bottom: 20px;
+        }
+        #enable-audio {
+            appearance: none;
+            border: 1px solid #737380;
+            background: #383844;
+            color: #fff;
+            font-size: 1.05rem;
+            padding: 12px 22px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        #enable-audio:hover {
+            background: #454555;
+        }
     </style>
 </head>
 <body>
     <h1>🎸 Guitar Notes</h1>
     <div id="loading" class="loading">Загрузка WASM...</div>
-    <br>
+
+    <div id="audio-gate" role="dialog" aria-modal="true" aria-labelledby="audio-gate-title">
+        <div class="panel">
+            <h2 id="audio-gate-title">Включить звук</h2>
+            <p>
+                Браузер блокирует аудио до первого клика.
+                Нажмите кнопку, чтобы разрешить воспроизведение нот.
+            </p>
+            <button type="button" id="enable-audio">Включить звук</button>
+        </div>
+    </div>
+
+    <script>
+        // Track AudioContexts created by cpal/rodio so we can resume them after a user gesture.
+        window.__audioContexts = [];
+        (function patchAudioContext() {
+            const Original = window.AudioContext || window.webkitAudioContext;
+            if (!Original) return;
+            function PatchedAudioContext(...args) {
+                const ctx = new Original(...args);
+                window.__audioContexts.push(ctx);
+                return ctx;
+            }
+            PatchedAudioContext.prototype = Original.prototype;
+            Object.setPrototypeOf(PatchedAudioContext, Original);
+            window.AudioContext = PatchedAudioContext;
+            if ('webkitAudioContext' in window) {
+                window.webkitAudioContext = PatchedAudioContext;
+            }
+        })();
+    </script>
     <script type="module">
         import init from './guitar_notes.js';
+
+        async function unlockAudio() {
+            const contexts = window.__audioContexts || [];
+            await Promise.all(
+                contexts.map(async (ctx) => {
+                    try {
+                        if (ctx.state === 'suspended') {
+                            await ctx.resume();
+                        }
+                    } catch (e) {
+                        console.warn('AudioContext resume failed', e);
+                    }
+                })
+            );
+        }
+
         try {
             await init();
             document.getElementById('loading').style.display = 'none';
-            document.querySelector('.game-container').style.display = 'block';
+
+            const gate = document.getElementById('audio-gate');
+            const button = document.getElementById('enable-audio');
+            gate.style.display = 'flex';
+
+            button.addEventListener('click', async () => {
+                await unlockAudio();
+                gate.style.display = 'none';
+            });
         } catch (e) {
             document.getElementById('loading').textContent = 'Ошибка загрузки: ' + e.message;
             console.error(e);
