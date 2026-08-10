@@ -1,6 +1,8 @@
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::ScalingMode;
 use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
+use bevy::window::WindowPlugin;
 use guitar_notes::music::{NotePlacement, detect_power_chord, format_note_lines};
 use rodio::mixer::Mixer;
 use rodio::source::{SineWave, Source};
@@ -59,6 +61,13 @@ const CHORD_INFO_MAX_HEIGHT_PX: f32 = 80.0;
 const CHORD_PANEL_MAX_WIDTH_PX: f32 = 480.0;
 /// Keep the panel inside the canvas (avoids clipping on rounded/wasm edges).
 const CHORD_PANEL_INSET_PX: f32 = 20.0;
+const NARROW_UI_WIDTH_PX: f32 = 700.0;
+const UI_FONT_SIZE_NARROW: f32 = 16.0;
+const CHORD_INFO_FONT_SIZE: f32 = 16.0;
+const CHORD_INFO_FONT_SIZE_NARROW: f32 = 14.0;
+
+#[derive(Component)]
+struct MainCamera;
 
 #[derive(Component, Clone)]
 struct Note {
@@ -145,7 +154,18 @@ fn main() {
         .insert_non_send(AudioSinkKeepAlive(sink))
         .insert_resource(note_audio)
         .insert_resource(CurrentTuning { index: 0 })
-        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Guitar Notes".into(),
+                    canvas: Some("#guitar-notes-canvas".into()),
+                    fit_canvas_to_parent: true,
+                    ..default()
+                }),
+                ..default()
+            }),
+            MeshPickingPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -216,6 +236,22 @@ fn tuning(index: usize) -> &'static Tunning {
     &tunings()[index]
 }
 
+fn ui_font_size(window_width: f32) -> f32 {
+    if window_width < NARROW_UI_WIDTH_PX {
+        UI_FONT_SIZE_NARROW
+    } else {
+        FONT_SIZE
+    }
+}
+
+fn chord_info_font_size(window_width: f32) -> f32 {
+    if window_width < NARROW_UI_WIDTH_PX {
+        CHORD_INFO_FONT_SIZE_NARROW
+    } else {
+        CHORD_INFO_FONT_SIZE
+    }
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -223,13 +259,27 @@ fn setup(
     window: Single<&Window>,
     current_tuning: Res<CurrentTuning>,
 ) {
-    commands.spawn(Camera2d);
+    let world_width = (AMOUNT_OF_FRETS as f32 + 2.0) * GAP;
+    let world_height = 6.0 * GAP + CHORD_PANEL_CLEARANCE_Y;
+    commands.spawn((
+        Camera2d,
+        MainCamera,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: ScalingMode::AutoMin {
+                min_width: world_width,
+                min_height: world_height,
+            },
+            ..OrthographicProjection::default_2d()
+        }),
+    ));
 
     let tunning: &Tunning = tuning(current_tuning.index);
+    let ui_font = ui_font_size(window.width());
+    let info_font = chord_info_font_size(window.width());
 
-    spawn_tuning_dropdown(&mut commands, current_tuning.index);
-    spawn_chord_controls(&mut commands);
-    spawn_power_chord_popup(&mut commands);
+    spawn_tuning_dropdown(&mut commands, current_tuning.index, ui_font);
+    spawn_chord_controls(&mut commands, ui_font, info_font);
+    spawn_power_chord_popup(&mut commands, ui_font);
 
     let window_width: f32 = window.width();
     let line_start_x: f32 = -window_width / 2.0 + GAP;
@@ -325,8 +375,9 @@ fn setup(
     }
 }
 
-fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize) {
+fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize, font_size: f32) {
     let current_name: &'static str = tuning(current_index).name;
+    let menu_min_width = if font_size < FONT_SIZE { 120.0 } else { 140.0 };
 
     commands
         .spawn((
@@ -350,7 +401,7 @@ fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize) {
                         padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        min_width: Val::Px(140.0),
+                        min_width: Val::Px(menu_min_width),
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
@@ -361,7 +412,7 @@ fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize) {
                     btn.spawn((
                         Text::new(format!("{current_name} v")),
                         TextFont {
-                            font_size: FontSize::Px(FONT_SIZE),
+                            font_size: FontSize::Px(font_size),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -375,7 +426,7 @@ fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(2.0),
-                        min_width: Val::Px(140.0),
+                        min_width: Val::Px(menu_min_width),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.2)),
@@ -400,7 +451,7 @@ fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize) {
                                 opt.spawn((
                                     Text::new(tunning.name),
                                     TextFont {
-                                        font_size: FontSize::Px(FONT_SIZE),
+                                        font_size: FontSize::Px(font_size),
                                         ..default()
                                     },
                                     TextColor(Color::WHITE),
@@ -620,7 +671,8 @@ fn note_placements(entries: &[(&Note, &FretPosition)]) -> Vec<NotePlacement> {
         .collect()
 }
 
-fn spawn_power_chord_popup(commands: &mut Commands) {
+fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
+    let body_font = if font_size < FONT_SIZE { 15.0 } else { 18.0 };
     commands
         .spawn((
             PowerChordPopup,
@@ -646,6 +698,7 @@ fn spawn_power_chord_popup(commands: &mut Commands) {
                         row_gap: Val::Px(12.0),
                         padding: UiRect::all(Val::Px(20.0)),
                         max_width: Val::Px(420.0),
+                        width: Val::Percent(92.0),
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
@@ -656,7 +709,7 @@ fn spawn_power_chord_popup(commands: &mut Commands) {
                     panel.spawn((
                         Text::new(""),
                         TextFont {
-                            font_size: FontSize::Px(FONT_SIZE),
+                            font_size: FontSize::Px(font_size),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -666,14 +719,14 @@ fn spawn_power_chord_popup(commands: &mut Commands) {
                     panel.spawn((
                         Text::new(""),
                         TextFont {
-                            font_size: FontSize::Px(18.0),
+                            font_size: FontSize::Px(body_font),
                             ..default()
                         },
                         TextColor(Color::srgb(0.85, 0.85, 0.9)),
                         PowerChordPopupText,
                     ));
 
-                    spawn_action_button(panel, "OK", DismissPowerChordPopup);
+                    spawn_action_button(panel, "OK", DismissPowerChordPopup, font_size);
                 });
         });
 }
@@ -694,7 +747,9 @@ fn set_note_label_color(
     }
 }
 
-fn spawn_chord_controls(commands: &mut Commands) {
+fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_size: f32) {
+    let panel_padding = if font_size < FONT_SIZE { 8.0 } else { 12.0 };
+    let panel_max_height = if font_size < FONT_SIZE { 140.0 } else { 160.0 };
     commands
         .spawn((
             Node {
@@ -716,8 +771,8 @@ fn spawn_chord_controls(commands: &mut Commands) {
                     row_gap: Val::Px(8.0),
                     max_width: Val::Px(CHORD_PANEL_MAX_WIDTH_PX),
                     width: Val::Percent(100.0),
-                    max_height: Val::Px(160.0),
-                    padding: UiRect::all(Val::Px(12.0)),
+                    max_height: Val::Px(panel_max_height),
+                    padding: UiRect::all(Val::Px(panel_padding)),
                     border: UiRect::all(Val::Px(1.0)),
                     overflow: Overflow::clip(),
                     ..default()
@@ -735,15 +790,15 @@ fn spawn_chord_controls(commands: &mut Commands) {
                         ..default()
                     },))
                     .with_children(|row| {
-                        spawn_action_button(row, "Play", PlayButton);
-                        spawn_action_button(row, "Explain", ExplainButton);
-                        spawn_action_button(row, "Clear", ClearButton);
+                        spawn_action_button(row, "Play", PlayButton, font_size);
+                        spawn_action_button(row, "Explain", ExplainButton, font_size);
+                        spawn_action_button(row, "Clear", ClearButton, font_size);
                     });
 
                 parent.spawn((
                     Text::new("Select up to 6 notes, then Play or Explain."),
                     TextFont {
-                        font_size: FontSize::Px(16.0),
+                        font_size: FontSize::Px(info_font_size),
                         ..default()
                     },
                     TextColor(Color::srgb(0.85, 0.85, 0.9)),
@@ -760,7 +815,13 @@ fn spawn_chord_controls(commands: &mut Commands) {
         });
 }
 
-fn spawn_action_button(parent: &mut ChildSpawnerCommands, label: &str, marker: impl Bundle) {
+fn spawn_action_button(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    marker: impl Bundle,
+    font_size: f32,
+) {
+    let min_width = if font_size < FONT_SIZE { 60.0 } else { 72.0 };
     parent
         .spawn((
             Button,
@@ -769,7 +830,7 @@ fn spawn_action_button(parent: &mut ChildSpawnerCommands, label: &str, marker: i
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                min_width: Val::Px(72.0),
+                min_width: Val::Px(min_width),
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
@@ -780,7 +841,7 @@ fn spawn_action_button(parent: &mut ChildSpawnerCommands, label: &str, marker: i
             btn.spawn((
                 Text::new(label),
                 TextFont {
-                    font_size: FontSize::Px(FONT_SIZE),
+                    font_size: FontSize::Px(font_size),
                     ..default()
                 },
                 TextColor(Color::WHITE),
