@@ -275,8 +275,10 @@ fn touch_pan_camera(
 
     // Content follows the finger (camera moves opposite to drag).
     let world_delta = prev_world - curr_world;
-    transform.translation.x = (transform.translation.x + world_delta.x).clamp(-PAN_LIMIT_X, PAN_LIMIT_X);
-    transform.translation.y = (transform.translation.y + world_delta.y).clamp(-PAN_LIMIT_Y, PAN_LIMIT_Y);
+    transform.translation.x =
+        (transform.translation.x + world_delta.x).clamp(-PAN_LIMIT_X, PAN_LIMIT_X);
+    transform.translation.y =
+        (transform.translation.y + world_delta.y).clamp(-PAN_LIMIT_Y, PAN_LIMIT_Y);
 }
 
 fn get_note_hz_in_4_octave(half_tones_from_a_4: f32) -> f32 {
