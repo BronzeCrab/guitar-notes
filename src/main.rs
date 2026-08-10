@@ -65,6 +65,14 @@ const NARROW_UI_WIDTH_PX: f32 = 700.0;
 const UI_FONT_SIZE_NARROW: f32 = 16.0;
 const CHORD_INFO_FONT_SIZE: f32 = 16.0;
 const CHORD_INFO_FONT_SIZE_NARROW: f32 = 14.0;
+/// OrthographicProjection.scale: smaller = zoom in, larger = zoom out (1.0 = full fretboard).
+const ZOOM_MIN: f32 = 0.45;
+const ZOOM_MAX: f32 = 2.5;
+
+#[derive(Resource, Default)]
+struct PinchZoom {
+    prev_distance: Option<f32>,
+}
 
 #[derive(Component)]
 struct MainCamera;
@@ -154,6 +162,7 @@ fn main() {
         .insert_non_send(AudioSinkKeepAlive(sink))
         .insert_resource(note_audio)
         .insert_resource(CurrentTuning { index: 0 })
+        .insert_resource(PinchZoom::default())
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -176,9 +185,39 @@ fn main() {
                 explain_selection,
                 clear_selection,
                 dismiss_power_chord_popup,
+                pinch_zoom_camera,
             ),
         )
         .run();
+}
+
+fn pinch_zoom_camera(
+    touches: Res<Touches>,
+    mut pinch: ResMut<PinchZoom>,
+    mut cameras: Query<&mut Projection, With<MainCamera>>,
+) {
+    let positions: Vec<Vec2> = touches.iter().map(|touch| touch.position()).collect();
+    if positions.len() != 2 {
+        pinch.prev_distance = None;
+        return;
+    }
+
+    let distance = positions[0].distance(positions[1]);
+    if distance <= f32::EPSILON {
+        return;
+    }
+
+    if let Some(prev) = pinch.prev_distance {
+        let Ok(mut projection) = cameras.single_mut() else {
+            return;
+        };
+        if let Projection::Orthographic(ortho) = projection.as_mut() {
+            // Fingers apart → distance grows → scale shrinks → zoom in.
+            ortho.scale = (ortho.scale * (prev / distance)).clamp(ZOOM_MIN, ZOOM_MAX);
+        }
+    }
+
+    pinch.prev_distance = Some(distance);
 }
 
 fn get_note_hz_in_4_octave(half_tones_from_a_4: f32) -> f32 {
