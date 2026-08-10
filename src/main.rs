@@ -68,10 +68,19 @@ const CHORD_INFO_FONT_SIZE_NARROW: f32 = 14.0;
 /// OrthographicProjection.scale: smaller = zoom in, larger = zoom out (1.0 = full fretboard).
 const ZOOM_MIN: f32 = 0.45;
 const ZOOM_MAX: f32 = 2.5;
+const PAN_START_THRESHOLD_PX: f32 = 12.0;
+const PAN_LIMIT_X: f32 = (AMOUNT_OF_FRETS as f32 + 2.0) * GAP * 0.45;
+const PAN_LIMIT_Y: f32 = (6.0 * GAP + CHORD_PANEL_CLEARANCE_Y) * 0.4;
 
 #[derive(Resource, Default)]
 struct PinchZoom {
     prev_distance: Option<f32>,
+}
+
+#[derive(Resource, Default)]
+struct TouchPan {
+    prev_position: Option<Vec2>,
+    dragging: bool,
 }
 
 #[derive(Component)]
@@ -163,6 +172,7 @@ fn main() {
         .insert_resource(note_audio)
         .insert_resource(CurrentTuning { index: 0 })
         .insert_resource(PinchZoom::default())
+        .insert_resource(TouchPan::default())
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -186,6 +196,7 @@ fn main() {
                 clear_selection,
                 dismiss_power_chord_popup,
                 pinch_zoom_camera,
+                touch_pan_camera,
             ),
         )
         .run();
@@ -218,6 +229,54 @@ fn pinch_zoom_camera(
     }
 
     pinch.prev_distance = Some(distance);
+}
+
+fn touch_pan_camera(
+    touches: Res<Touches>,
+    mut pan: ResMut<TouchPan>,
+    mut cameras: Query<(&Camera, &GlobalTransform, &mut Transform), With<MainCamera>>,
+) {
+    let touch_count = touches.iter().count();
+    if touch_count != 1 {
+        pan.prev_position = None;
+        pan.dragging = false;
+        return;
+    }
+
+    let Some(touch) = touches.iter().next() else {
+        return;
+    };
+    let pos = touch.position();
+
+    let Some(prev) = pan.prev_position else {
+        pan.prev_position = Some(pos);
+        return;
+    };
+    pan.prev_position = Some(pos);
+
+    let screen_delta = pos - prev;
+    if !pan.dragging {
+        if screen_delta.length() < PAN_START_THRESHOLD_PX {
+            return;
+        }
+        pan.dragging = true;
+    }
+
+    let Ok((camera, global_transform, mut transform)) = cameras.single_mut() else {
+        return;
+    };
+
+    let Ok(prev_world) = camera.viewport_to_world_2d(global_transform, prev) else {
+        return;
+    };
+    let Ok(curr_world) = camera.viewport_to_world_2d(global_transform, pos) else {
+        return;
+    };
+
+    // Content follows the finger (camera moves opposite to drag).
+    let world_delta = prev_world - curr_world;
+    transform.translation.x = (transform.translation.x + world_delta.x).clamp(-PAN_LIMIT_X, PAN_LIMIT_X);
+    transform.translation.y = (transform.translation.y + world_delta.y).clamp(-PAN_LIMIT_Y, PAN_LIMIT_Y);
 }
 
 fn get_note_hz_in_4_octave(half_tones_from_a_4: f32) -> f32 {
