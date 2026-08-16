@@ -8,13 +8,13 @@ name = "guitar_notes"
 path = "src/lib.rs"
 
 [dependencies]
-bevy = { version = "0.19.0", features = ["webgl2"] }
-rodio = "0.22"
-rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
-wasm-bindgen = "0.2.126"
-wasm-bindgen-futures = "0.4"
-console_error_panic_hook = "0.1"
-wee_alloc = "0.4"
+bevy = { version = "0.19.1", features = ["webgl2"] }
+rodio = "0.22.2"
+rand = { version = "0.10", default-features = false, features = ["std", "std_rng"] }
+wasm-bindgen = "0.2.127"
+wasm-bindgen-futures = "0.4.77"
+console_error_panic_hook = "0.1.7"
+wee_alloc = "0.4.5"
 
 # getrandom's wasm_js/js backends must NOT be enabled for native targets
 # (compile_error on Windows/Linux/macOS). Activate only for wasm builds.

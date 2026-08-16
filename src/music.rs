@@ -9,6 +9,9 @@ pub const NATURAL_PITCH_CLASSES: [(&str, u8); 7] = [
     ("F", 8),
     ("G", 10),
 ];
+
+pub const NOTE_NAMES: [&str; 7] = ["A", "B", "C", "D", "E", "F", "G"];
+
 pub const SEMITONES_PER_OCTAVE: u8 = 12;
 pub const PERFECT_FIFTH_SEMITONES: u8 = 7;
 pub const PERFECT_FOURTH_SEMITONES: u8 = 5; // inverted fifth
@@ -41,6 +44,13 @@ pub fn note_name_for_pitch_class(pc: u8) -> Option<&'static str> {
         .iter()
         .find(|(_, mapped)| *mapped == pc)
         .map(|(name, _)| *name)
+}
+
+pub fn note_index(name: &str) -> usize {
+    NOTE_NAMES
+        .iter()
+        .position(|&n| n == name)
+        .unwrap_or_else(|| panic!("unknown note name: {name}"))
 }
 
 pub fn detect_power_chord(note_names: &[&str]) -> Option<PowerChordInfo> {
