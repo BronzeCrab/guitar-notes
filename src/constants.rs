@@ -31,7 +31,6 @@ pub const CHORD_PANEL_CLEARANCE_Y: f32 = 170.0;
 /// Camera world size: 22 frets + nut + open labels + side padding.
 pub const WORLD_WIDTH: f32 = (AMOUNT_OF_FRETS as f32 + 3.0) * GAP;
 pub const WORLD_HEIGHT: f32 = 6.0 * GAP + CHORD_PANEL_CLEARANCE_Y;
-pub const CHORD_INFO_MAX_HEIGHT_PX: f32 = 80.0;
 pub const CHORD_PANEL_MAX_WIDTH_PX: f32 = 480.0;
 /// Keep the panel inside the canvas (avoids clipping on rounded/wasm edges).
 pub const CHORD_PANEL_INSET_PX: f32 = 20.0;

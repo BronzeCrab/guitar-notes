@@ -1,6 +1,4 @@
-use crate::constants::{
-    CHORD_INFO_MAX_HEIGHT_PX, CHORD_PANEL_INSET_PX, CHORD_PANEL_MAX_WIDTH_PX, FONT_SIZE,
-};
+use crate::constants::{CHORD_PANEL_INSET_PX, CHORD_PANEL_MAX_WIDTH_PX, FONT_SIZE};
 use crate::tuning::{tuning, tunings};
 use bevy::prelude::*;
 
@@ -244,13 +242,6 @@ pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_s
                         ..default()
                     },
                     TextColor(Color::srgb(0.85, 0.85, 0.9)),
-                    Node {
-                        max_width: Val::Percent(100.0),
-                        max_height: Val::Px(CHORD_INFO_MAX_HEIGHT_PX),
-                        overflow: Overflow::scroll_y(),
-                        flex_shrink: 1.0,
-                        ..default()
-                    },
                     ChordInfoText,
                 ));
             });

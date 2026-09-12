@@ -61,6 +61,17 @@ pub fn tunings() -> &'static [Tuning] {
                     open_note("E", -5.0, 4),
                 ],
             },
+            Tuning {
+                name: "Drop C",
+                notes: [
+                    open_note("C", -9.0, 2), // C2  ~65.4 Hz
+                    open_note("G", -2.0, 2), // G2  ~98 Hz
+                    open_note("C", -9.0, 3), // C3  ~130.8 Hz
+                    open_note("F", -4.0, 3), // F3  ~174.6 Hz
+                    open_note("A", 0.0, 3),  // A3  220 Hz
+                    open_note("D", -7.0, 4), // D4  ~293.7 Hz
+                ],
+            },
         ]
     })
 }
