@@ -1,4 +1,4 @@
-use crate::constants::{CHORD_PANEL_INSET_PX, CHORD_PANEL_MAX_WIDTH_PX, FONT_SIZE};
+use crate::constants::FONT_SIZE;
 use crate::sequence::spawn_selected_notes_panel;
 use crate::tuning::{tuning, tunings};
 use bevy::prelude::*;
@@ -188,16 +188,17 @@ pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
         });
 }
 
-pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_size: f32) {
-    let panel_padding = if font_size < FONT_SIZE { 8.0 } else { 12.0 };
-    commands
+pub fn spawn_chord_controls(
+    parent: &mut ChildSpawnerCommands,
+    font_size: f32,
+    info_font_size: f32,
+) {
+    let panel_padding = if font_size < FONT_SIZE { 6.0 } else { 12.0 };
+    parent
         .spawn((
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(CHORD_PANEL_INSET_PX),
-                right: Val::Px(CHORD_PANEL_INSET_PX),
-                bottom: Val::Px(CHORD_PANEL_INSET_PX),
-                justify_content: JustifyContent::Center,
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
                 padding: UiRect::ZERO,
                 ..default()
             },
@@ -208,12 +209,9 @@ pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_s
             bar.spawn((
                 Node {
                     flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(8.0),
-                    max_width: Val::Px(CHORD_PANEL_MAX_WIDTH_PX),
-                    width: Val::Percent(100.0),
                     padding: UiRect::all(Val::Px(panel_padding)),
                     border: UiRect::all(Val::Px(1.0)),
-                    overflow: Overflow::clip(),
+                    row_gap: Val::Px(8.0),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.92)),
@@ -238,12 +236,18 @@ pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_s
 
                 parent.spawn((
                     Text::new("Select up to 6 notes, then Play or Explain."),
+                    TextLayout::linebreak(LineBreak::WordBoundary),
                     TextFont {
                         font_size: FontSize::Px(info_font_size),
                         ..default()
                     },
                     TextColor(Color::srgb(0.85, 0.85, 0.9)),
                     ChordInfoText,
+                    Node {
+                        width: Val::Percent(100.0),
+                        flex_shrink: 1.0,
+                        ..default()
+                    },
                 ));
             });
         });

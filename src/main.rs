@@ -1,5 +1,4 @@
 mod audio;
-mod camera;
 mod constants;
 mod fretboard;
 mod selection;
@@ -9,8 +8,8 @@ mod ui;
 
 use audio::{AudioSinkKeepAlive, NoteAudio};
 use bevy::prelude::*;
+use bevy::ui::UiSystems;
 use bevy::window::WindowPlugin;
-use camera::{PinchZoom, TouchPan};
 use rodio::DeviceSinkBuilder;
 use sequence::{
     ChordPlayback, ChordSelection, ChordSelectionToken, CurrentMode, SelectionCounter, Sequence,
@@ -37,26 +36,23 @@ fn main() {
         .insert_resource(ChordSelectionToken::default())
         .insert_resource(SelectionCounter::default())
         .insert_resource(ChordPlayback::default())
-        .insert_resource(PinchZoom::default())
-        .insert_resource(TouchPan::default())
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Guitar Notes".into(),
-                    canvas: Some("#guitar-notes-canvas".into()),
-                    fit_canvas_to_parent: true,
-                    ..default()
-                }),
+        .insert_resource(fretboard::FretboardLayoutState::default())
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Guitar Notes".into(),
+                canvas: Some("#guitar-notes-canvas".into()),
+                fit_canvas_to_parent: true,
                 ..default()
             }),
-            MeshPickingPlugin,
-        ))
+            ..default()
+        }))
         .add_systems(Startup, fretboard::setup)
         .add_systems(
             Update,
             (
                 ui::toggle_tuning_menu,
                 fretboard::apply_tuning_selection,
+                fretboard::handle_note_click,
                 selection::play_selected_notes,
                 selection::explain_selection,
                 selection::clear_selection,
@@ -69,9 +65,11 @@ fn main() {
                 sequence::refresh_sequence_visuals.after(sequence::sequence_playback),
                 sequence::sequence_playback,
                 ui::dismiss_power_chord_popup,
-                camera::pinch_zoom_camera,
-                camera::touch_pan_camera,
             ),
+        )
+        .add_systems(
+            PostUpdate,
+            fretboard::layout_fretboard.before(UiSystems::Layout),
         )
         .run();
 }
