@@ -181,14 +181,14 @@ pub fn spawn_mode_buttons(commands: &mut Commands, font_size: f32) {
 /// Shown as a distinct sub-block in both chord and sequence modes.
 pub fn spawn_selected_notes_panel(
     parent: &mut ChildSpawnerCommands,
-    main_font: f32,
-    sub_font: f32,
+    main_font_size: f32,
+    sub_font_size: f32,
 ) {
     parent
         .spawn((
             SelectedNotesPanel {
-                main: main_font,
-                sub: sub_font,
+                main: main_font_size,
+                sub: sub_font_size,
             },
             Node {
                 flex_direction: FlexDirection::Column,
@@ -204,7 +204,7 @@ pub fn spawn_selected_notes_panel(
             panel.spawn((
                 Text::new("Selected Notes:"),
                 TextFont {
-                    font_size: FontSize::Px(main_font),
+                    font_size: FontSize::Px(main_font_size),
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.9)),
