@@ -23,6 +23,9 @@ pub const COLORS: [Color; 7] = [
 /// Amber highlight for selected notes (matches site accent #feca57).
 pub const SELECTED_NOTE_COLOR: Color = Color::srgb(1.0, 0.78, 0.16);
 pub const SELECTED_NOTE_TEXT_COLOR: Color = Color::srgb(0.12, 0.1, 0.05);
+pub const SELECTION_OUTLINE_THICKNESS: f32 = 3.0;
+pub const SELECTION_OUTLINE_COLOR: Color = Color::WHITE;
+pub const PLAYING_TINT_COLOR: Color = Color::srgba(1.0, 0.95, 0.7, 0.5);
 
 pub const MAX_SELECTED_NOTES: usize = 6;
 pub const NOTE_PLAY_DURATION_MS: u64 = 900;

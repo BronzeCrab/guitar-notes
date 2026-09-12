@@ -1,6 +1,8 @@
 use crate::audio::{NoteAudio, play_note_hz};
-use crate::constants::COLORS;
-use crate::fretboard::{FretPosition, NoteVisual, SelectedNote, set_note_label_color};
+use crate::fretboard::{FretPosition, SelectedNote};
+use crate::sequence::{
+    AppMode, ChordPlayback, CurrentMode, SelectedOrder, Sequence, SequencePlayback,
+};
 use crate::tuning::Note;
 use crate::ui::{
     ChordInfoText, ClearButton, ExplainButton, PlayButton, PowerChordPopup, PowerChordPopupText,
@@ -8,6 +10,25 @@ use crate::ui::{
 };
 use bevy::prelude::*;
 use guitar_notes::music::{NoteName, NotePlacement, detect_power_chord, format_note_lines};
+
+fn sequence_lines(sequence: &Sequence) -> String {
+    sequence
+        .0
+        .iter()
+        .enumerate()
+        .map(|(i, placement)| {
+            format!(
+                "{}. {} (oct {}) - fret {}, string {}",
+                i + 1,
+                placement.name,
+                placement.octave,
+                placement.fret,
+                guitar_notes::music::guitar_string_number(placement.string_index),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 fn note_placements(entries: &[(&Note, &FretPosition)]) -> Vec<NotePlacement> {
     entries
@@ -27,12 +48,17 @@ pub fn play_selected_notes(
     interactions: Query<&Interaction, (Changed<Interaction>, With<PlayButton>)>,
     selected: Query<(&Note, &FretPosition), With<SelectedNote>>,
     audio: Res<NoteAudio>,
+    mut chord_playback: ResMut<ChordPlayback>,
     mut popups: Query<&mut Visibility, With<PowerChordPopup>>,
     mut popup_texts: ParamSet<(
         Query<&mut Text, With<SelectionPopupTitle>>,
         Query<&mut Text, With<PowerChordPopupText>>,
     )>,
+    mode: Res<CurrentMode>,
 ) {
+    if mode.0 == AppMode::Sequence {
+        return;
+    }
     for interaction in &interactions {
         if *interaction != Interaction::Pressed {
             continue;
@@ -46,6 +72,9 @@ pub fn play_selected_notes(
         if entries.is_empty() {
             continue;
         }
+
+        chord_playback.playing = true;
+        chord_playback.timer.reset();
 
         let names: Vec<NoteName> = entries.iter().map(|(note, _)| note.name).collect();
         let mut placements = note_placements(&entries);
@@ -75,16 +104,28 @@ pub fn explain_selection(
     interactions: Query<&Interaction, (Changed<Interaction>, With<ExplainButton>)>,
     selected: Query<(&Note, &FretPosition), With<SelectedNote>>,
     mut info_texts: Query<&mut Text, With<ChordInfoText>>,
+    mode: Res<CurrentMode>,
+    sequence: Res<Sequence>,
 ) {
     for interaction in &interactions {
         if *interaction != Interaction::Pressed {
             continue;
         }
 
-        let entries: Vec<(&Note, &FretPosition)> = selected.iter().collect();
-        let message = if entries.is_empty() {
+        let message = if mode.0 == AppMode::Sequence {
+            if sequence.0.is_empty() {
+                "Sequence is empty. Click fretboard notes to add them in order.".to_string()
+            } else {
+                format!(
+                    "Sequence ({} notes):\n{}",
+                    sequence.0.len(),
+                    sequence_lines(&sequence)
+                )
+            }
+        } else if selected.is_empty() {
             "Select notes first, then press Explain.".to_string()
         } else {
+            let entries: Vec<(&Note, &FretPosition)> = selected.iter().collect();
             let names: Vec<NoteName> = entries.iter().map(|(note, _)| note.name).collect();
             let mut placements = note_placements(&entries);
             let note_lines = format_note_lines(&mut placements);
@@ -105,24 +146,28 @@ pub fn explain_selection(
 pub fn clear_selection(
     interactions: Query<&Interaction, (Changed<Interaction>, With<ClearButton>)>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    selected: Query<(Entity, &NoteVisual, &MeshMaterial2d<ColorMaterial>), With<SelectedNote>>,
-    children_q: Query<&Children>,
-    mut text_colors: Query<&mut TextColor>,
+    selected: Query<Entity, With<SelectedNote>>,
     mut info_texts: Query<&mut Text, With<ChordInfoText>>,
     mut popups: Query<&mut Visibility, With<PowerChordPopup>>,
+    mode: Res<CurrentMode>,
+    mut sequence: ResMut<Sequence>,
+    mut playback: ResMut<SequencePlayback>,
 ) {
     for interaction in &interactions {
         if *interaction != Interaction::Pressed {
             continue;
         }
 
-        for (entity, visual, material) in &selected {
-            if let Some(mut mat) = materials.get_mut(material.id()) {
-                mat.color = COLORS[visual.color_index];
+        if mode.0 == AppMode::Sequence {
+            sequence.0.clear();
+            playback.playing = false;
+            playback.cursor = 0;
+        } else {
+            for entity in &selected {
+                commands
+                    .entity(entity)
+                    .remove::<(SelectedNote, SelectedOrder)>();
             }
-            set_note_label_color(entity, Color::WHITE, &children_q, &mut text_colors);
-            commands.entity(entity).remove::<SelectedNote>();
         }
 
         for mut text in &mut info_texts {

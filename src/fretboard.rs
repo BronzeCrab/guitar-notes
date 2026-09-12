@@ -1,8 +1,13 @@
 use crate::camera::MainCamera;
 use crate::constants::{
     AMOUNT_OF_FRETS, CHORD_PANEL_CLEARANCE_Y, COLORS, FONT_SIZE, GAP, GREY, GUITAR_OUTLINE_COLOR,
-    MAX_SELECTED_NOTES, OPEN_STRING_OFFSET_X, RECT_SIZE, SELECTED_NOTE_COLOR,
-    SELECTED_NOTE_TEXT_COLOR, WORLD_HEIGHT, WORLD_WIDTH, chord_info_font_size, ui_font_size,
+    MAX_SELECTED_NOTES, OPEN_STRING_OFFSET_X, PLAYING_TINT_COLOR, RECT_SIZE,
+    SELECTION_OUTLINE_COLOR, SELECTION_OUTLINE_THICKNESS, WORLD_HEIGHT, WORLD_WIDTH,
+    chord_info_font_size, ui_font_size,
+};
+use crate::sequence::{
+    AppMode, CurrentMode, SelectedOrder, SelectionCounter, Sequence, SequencePlayback,
+    SequenceToken, add_sequence_note, spawn_mode_buttons,
 };
 use crate::tuning::{CurrentTuning, Note, Tuning, color_index_for_note, note_hz, tuning, tunings};
 use crate::ui::{
@@ -38,6 +43,14 @@ pub struct FretPosition {
 #[derive(Component)]
 pub struct SelectedNote;
 
+/// White outline border around a selected note (child of the note mesh).
+#[derive(Component)]
+pub struct SelectionRing;
+
+/// Semi-transparent cream overlay shown when a note is currently sounding.
+#[derive(Component)]
+pub struct PlayingTint;
+
 #[derive(Component)]
 pub struct NoteVisual {
     pub color_index: usize,
@@ -67,6 +80,7 @@ pub fn setup(
     let info_font = chord_info_font_size(window.width());
 
     spawn_tuning_dropdown(&mut commands, current_tuning.index, ui_font);
+    spawn_mode_buttons(&mut commands, ui_font);
     spawn_chord_controls(&mut commands, ui_font, info_font);
     spawn_power_chord_popup(&mut commands, ui_font);
 
@@ -267,47 +281,114 @@ fn spawn_clickable_note(
         entity.insert(OpenStringLabel);
     }
     entity
-        .with_child((
-            Text2d::new(note.name.as_str()),
-            TextFont {
-                font_size: FontSize::Px(FONT_SIZE),
-                ..default()
-            },
-            TextColor(Color::WHITE),
-            Visibility::Visible,
-            Pickable::IGNORE,
-        ))
+        .with_children(|note_children| {
+            let outline_mat = materials.add(ColorMaterial::from(SELECTION_OUTLINE_COLOR));
+            let t = SELECTION_OUTLINE_THICKNESS;
+            let half = RECT_SIZE / 2.0;
+            let mut ring_parent = note_children.spawn((
+                SelectionRing,
+                Transform::from_xyz(0.0, 0.0, 0.05),
+                Visibility::Hidden,
+                Pickable::IGNORE,
+            ));
+            // Top edge
+            ring_parent.with_child((
+                Mesh2d(meshes.add(Rectangle::new(RECT_SIZE + 2.0 * t, t))),
+                MeshMaterial2d(outline_mat.clone()),
+                Transform::from_xyz(0.0, half + t / 2.0, 0.0),
+            ));
+            // Bottom edge
+            ring_parent.with_child((
+                Mesh2d(meshes.add(Rectangle::new(RECT_SIZE + 2.0 * t, t))),
+                MeshMaterial2d(outline_mat.clone()),
+                Transform::from_xyz(0.0, -(half + t / 2.0), 0.0),
+            ));
+            // Left edge
+            ring_parent.with_child((
+                Mesh2d(meshes.add(Rectangle::new(t, RECT_SIZE + 2.0 * t))),
+                MeshMaterial2d(outline_mat.clone()),
+                Transform::from_xyz(-(half + t / 2.0), 0.0, 0.0),
+            ));
+            // Right edge
+            ring_parent.with_child((
+                Mesh2d(meshes.add(Rectangle::new(t, RECT_SIZE + 2.0 * t))),
+                MeshMaterial2d(outline_mat),
+                Transform::from_xyz(half + t / 2.0, 0.0, 0.0),
+            ));
+
+            // Translucent tint overlay for "currently playing" highlight
+            note_children.spawn((
+                PlayingTint,
+                Mesh2d(meshes.add(Rectangle::new(RECT_SIZE, RECT_SIZE))),
+                MeshMaterial2d(materials.add(ColorMaterial::from(PLAYING_TINT_COLOR))),
+                Transform::from_xyz(0.0, 0.0, 0.08),
+                Visibility::Hidden,
+                Pickable::IGNORE,
+            ));
+
+            // Label text sits on top of everything
+            note_children.spawn((
+                Text2d::new(note.name.as_str()),
+                TextFont {
+                    font_size: FontSize::Px(FONT_SIZE),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Transform::from_xyz(0.0, 0.0, 0.15),
+                Visibility::Visible,
+                Pickable::IGNORE,
+            ));
+        })
         .observe(on_note_click);
 }
 
-pub fn set_note_label_color(
+/// Set the text label, selection outline and playing tint on a note's child entities.
+#[allow(clippy::too_many_arguments)]
+pub fn set_note_visual(
     entity: Entity,
-    color: Color,
+    label: &str,
+    label_color: Color,
+    ring_visible: bool,
+    playing: bool,
     children_q: &Query<&Children>,
-    text_colors: &mut Query<&mut TextColor>,
+    labels: &mut Query<(&mut Text, &mut TextColor)>,
+    rings: &mut Query<&mut Visibility, (With<SelectionRing>, Without<PlayingTint>)>,
+    tints: &mut Query<&mut Visibility, (With<PlayingTint>, Without<SelectionRing>)>,
 ) {
     let Ok(children) = children_q.get(entity) else {
         return;
     };
     for child in children.iter() {
-        if let Ok(mut text_color) = text_colors.get_mut(child) {
-            *text_color = TextColor(color);
+        if let Ok((mut text, mut text_color)) = labels.get_mut(child) {
+            *text = Text::new(label);
+            *text_color = TextColor(label_color);
+        }
+        if let Ok(mut visibility) = rings.get_mut(child) {
+            *visibility = if ring_visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+        if let Ok(mut visibility) = tints.get_mut(child) {
+            *visibility = if ring_visible && playing {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
         }
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn on_note_click(
     click: On<Pointer<Click>>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    notes_q: Query<(
-        &NoteVisual,
-        &MeshMaterial2d<ColorMaterial>,
-        Option<&SelectedNote>,
-    )>,
+    notes_q: Query<(&Note, &FretPosition, Option<&SelectedNote>)>,
     parents: Query<&ChildOf>,
-    children_q: Query<&Children>,
-    mut text_colors: Query<&mut TextColor>,
+    mode: Res<CurrentMode>,
+    mut sequence: ResMut<Sequence>,
+    mut counter: ResMut<SelectionCounter>,
 ) {
     let event: &Pointer<Click> = On::event(&click);
     let mut entity: Entity = event.event_target();
@@ -318,16 +399,19 @@ fn on_note_click(
         };
         entity = child_of.parent();
     }
-    let Ok((visual, material, selected_marker)) = notes_q.get(entity) else {
+    let Ok((note, position, selected_marker)) = notes_q.get(entity) else {
         return;
     };
 
+    if mode.0 == AppMode::Sequence {
+        add_sequence_note(&mut sequence, note, position);
+        return;
+    }
+
     if selected_marker.is_some() {
-        commands.entity(entity).remove::<SelectedNote>();
-        if let Some(mut mat) = materials.get_mut(material.id()) {
-            mat.color = COLORS[visual.color_index];
-        }
-        set_note_label_color(entity, Color::WHITE, &children_q, &mut text_colors);
+        commands
+            .entity(entity)
+            .remove::<(SelectedNote, SelectedOrder)>();
         return;
     }
 
@@ -336,17 +420,10 @@ fn on_note_click(
         return;
     }
 
-    let material_id = material.id();
-    commands.entity(entity).insert(SelectedNote);
-    if let Some(mut mat) = materials.get_mut(material_id) {
-        mat.color = SELECTED_NOTE_COLOR;
-    }
-    set_note_label_color(
-        entity,
-        SELECTED_NOTE_TEXT_COLOR,
-        &children_q,
-        &mut text_colors,
-    );
+    commands
+        .entity(entity)
+        .insert((SelectedNote, SelectedOrder { order: counter.0 }));
+    counter.0 += 1;
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -366,6 +443,9 @@ pub fn apply_tuning_selection(
         Query<&mut Text, With<ChordInfoText>>,
     )>,
     fret_notes: Query<Entity, With<FretNote>>,
+    mut sequence: ResMut<Sequence>,
+    mut sequence_token: ResMut<SequenceToken>,
+    mut playback: ResMut<SequencePlayback>,
 ) {
     for (interaction, option) in &option_clicks {
         if *interaction != Interaction::Pressed {
@@ -410,5 +490,10 @@ pub fn apply_tuning_selection(
         for mut text in &mut texts.p1() {
             *text = Text::new("Select up to 6 notes, then Play or Explain.");
         }
+
+        sequence.0.clear();
+        sequence_token.0 += 1;
+        playback.playing = false;
+        playback.cursor = 0;
     }
 }

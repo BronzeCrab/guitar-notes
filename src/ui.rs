@@ -1,4 +1,5 @@
 use crate::constants::{CHORD_PANEL_INSET_PX, CHORD_PANEL_MAX_WIDTH_PX, FONT_SIZE};
+use crate::sequence::spawn_selected_notes_panel;
 use crate::tuning::{tuning, tunings};
 use bevy::prelude::*;
 
@@ -189,7 +190,6 @@ pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
 
 pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_size: f32) {
     let panel_padding = if font_size < FONT_SIZE { 8.0 } else { 12.0 };
-    let panel_max_height = if font_size < FONT_SIZE { 140.0 } else { 160.0 };
     commands
         .spawn((
             Node {
@@ -211,7 +211,6 @@ pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_s
                     row_gap: Val::Px(8.0),
                     max_width: Val::Px(CHORD_PANEL_MAX_WIDTH_PX),
                     width: Val::Percent(100.0),
-                    max_height: Val::Px(panel_max_height),
                     padding: UiRect::all(Val::Px(panel_padding)),
                     border: UiRect::all(Val::Px(1.0)),
                     overflow: Overflow::clip(),
@@ -221,6 +220,8 @@ pub fn spawn_chord_controls(commands: &mut Commands, font_size: f32, info_font_s
                 BorderColor::all(Color::srgb(0.45, 0.45, 0.5)),
             ))
             .with_children(|parent| {
+                spawn_selected_notes_panel(parent, font_size, info_font_size);
+
                 parent
                     .spawn((Node {
                         flex_direction: FlexDirection::Row,

@@ -3,6 +3,7 @@ mod camera;
 mod constants;
 mod fretboard;
 mod selection;
+mod sequence;
 mod tuning;
 mod ui;
 
@@ -11,6 +12,10 @@ use bevy::prelude::*;
 use bevy::window::WindowPlugin;
 use camera::{PinchZoom, TouchPan};
 use rodio::DeviceSinkBuilder;
+use sequence::{
+    ChordPlayback, ChordSelection, ChordSelectionToken, CurrentMode, SelectionCounter, Sequence,
+    SequencePlayback, SequenceToken,
+};
 use tuning::CurrentTuning;
 
 fn main() {
@@ -24,6 +29,14 @@ fn main() {
         .insert_non_send(AudioSinkKeepAlive(sink))
         .insert_resource(note_audio)
         .insert_resource(CurrentTuning { index: 0 })
+        .insert_resource(CurrentMode::default())
+        .insert_resource(Sequence::default())
+        .insert_resource(SequenceToken::default())
+        .insert_resource(SequencePlayback::default())
+        .insert_resource(ChordSelection::default())
+        .insert_resource(ChordSelectionToken::default())
+        .insert_resource(SelectionCounter::default())
+        .insert_resource(ChordPlayback::default())
         .insert_resource(PinchZoom::default())
         .insert_resource(TouchPan::default())
         .add_plugins((
@@ -47,6 +60,14 @@ fn main() {
                 selection::play_selected_notes,
                 selection::explain_selection,
                 selection::clear_selection,
+                sequence::toggle_mode,
+                sequence::track_selected_notes,
+                sequence::refresh_chord_visuals.after(sequence::track_selected_notes),
+                sequence::update_selected_notes_panel.after(sequence::refresh_chord_visuals),
+                sequence::handle_selected_entry_click,
+                sequence::chord_playback_tick,
+                sequence::refresh_sequence_visuals.after(sequence::sequence_playback),
+                sequence::sequence_playback,
                 ui::dismiss_power_chord_popup,
                 camera::pinch_zoom_camera,
                 camera::touch_pan_camera,

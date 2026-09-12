@@ -75,7 +75,7 @@ pub struct PowerChordInfo {
     pub blurb: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NotePlacement {
     pub name: NoteName,
     pub hz: f32,
