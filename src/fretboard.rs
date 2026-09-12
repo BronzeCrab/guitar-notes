@@ -5,7 +5,7 @@ use crate::constants::{
     SELECTED_NOTE_TEXT_COLOR, WORLD_HEIGHT, WORLD_WIDTH, chord_info_font_size, ui_font_size,
 };
 use crate::tuning::{
-    CurrentTuning, Note, Tuning, color_index_for_note, get_note_hz_in_4_octave, tuning, tunings,
+    CurrentTuning, Note, Tuning, color_index_for_note, note_hz, tuning, tunings,
 };
 use crate::ui::{
     ChordInfoText, PowerChordPopup, TuningMenuLabel, TuningMenuPanel, TuningOption,
@@ -191,8 +191,7 @@ pub fn spawn_tuning_labels_and_notes(
             true,
         );
 
-        let divisor: f32 = 2_f32.powi((4 - open.octave) as i32);
-        let mut half_tones_from_a_4 = open.half_tones_from_a_4;
+        let mut semitones_from_a_4 = open.semitones_from_a_4;
         let mut octave = open.octave;
         let mut note_ind = (color_index + 1) % NOTE_NAMES.len();
         let mut x = line_start_x;
@@ -201,13 +200,13 @@ pub fn spawn_tuning_labels_and_notes(
             let name = NOTE_NAMES[note_ind];
             if name == "C" || name == "F" {
                 x += GAP;
-                half_tones_from_a_4 += 1.0;
+                semitones_from_a_4 += 1.0;
                 if name == "C" {
                     octave += 1;
                 }
             } else {
                 x += 2.0 * GAP;
-                half_tones_from_a_4 += 2.0;
+                semitones_from_a_4 += 2.0;
             }
 
             let fret = ((x - line_start_x) / GAP).round() as u8;
@@ -221,9 +220,9 @@ pub fn spawn_tuning_labels_and_notes(
                 materials,
                 Note {
                     name,
-                    hz: get_note_hz_in_4_octave(half_tones_from_a_4) / divisor,
+                    hz: note_hz(semitones_from_a_4),
                     octave,
-                    half_tones_from_a_4,
+                    semitones_from_a_4,
                 },
                 note_ind,
                 x,

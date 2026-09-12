@@ -7,7 +7,7 @@ pub struct Note {
     pub name: &'static str,
     pub hz: f32,
     pub octave: i8,
-    pub half_tones_from_a_4: f32,
+    pub semitones_from_a_4: f32,
 }
 
 #[derive(Clone)]
@@ -21,17 +21,16 @@ pub struct CurrentTuning {
     pub index: usize,
 }
 
-pub fn get_note_hz_in_4_octave(half_tones_from_a_4: f32) -> f32 {
-    440.0 * 2_f32.powf(half_tones_from_a_4 / 12.0)
+pub fn note_hz(semitones_from_a_4: f32) -> f32 {
+    440.0 * 2_f32.powf(semitones_from_a_4 / 12.0)
 }
 
-pub fn open_note(name: &'static str, half_tones_from_a_4: f32, octave: i8) -> Note {
-    let divisor: f32 = 2_f32.powi((4 - octave) as i32);
+pub fn open_note(name: &'static str, semitones_from_a_4: f32, octave: i8) -> Note {
     Note {
         name,
-        half_tones_from_a_4,
+        semitones_from_a_4,
         octave,
-        hz: get_note_hz_in_4_octave(half_tones_from_a_4) / divisor,
+        hz: note_hz(semitones_from_a_4),
     }
 }
 
@@ -42,34 +41,34 @@ pub fn tunings() -> &'static [Tuning] {
             Tuning {
                 name: "Standard",
                 notes: [
-                    open_note("E", -5.0, 2),
-                    open_note("A", 0.0, 2),
-                    open_note("D", -7.0, 3),
-                    open_note("G", -2.0, 3),
-                    open_note("B", 2.0, 3),
+                    open_note("E", -29.0, 2),
+                    open_note("A", -24.0, 2),
+                    open_note("D", -19.0, 3),
+                    open_note("G", -14.0, 3),
+                    open_note("B", -10.0, 3),
                     open_note("E", -5.0, 4),
                 ],
             },
             Tuning {
                 name: "Drop D",
                 notes: [
-                    open_note("D", -7.0, 2),
-                    open_note("A", 0.0, 2),
-                    open_note("D", -7.0, 3),
-                    open_note("G", -2.0, 3),
-                    open_note("B", 2.0, 3),
+                    open_note("D", -31.0, 2),
+                    open_note("A", -24.0, 2),
+                    open_note("D", -19.0, 3),
+                    open_note("G", -14.0, 3),
+                    open_note("B", -10.0, 3),
                     open_note("E", -5.0, 4),
                 ],
             },
             Tuning {
                 name: "Drop C",
                 notes: [
-                    open_note("C", -9.0, 2), // C2  ~65.4 Hz
-                    open_note("G", -2.0, 2), // G2  ~98 Hz
-                    open_note("C", -9.0, 3), // C3  ~130.8 Hz
-                    open_note("F", -4.0, 3), // F3  ~174.6 Hz
-                    open_note("A", 0.0, 3),  // A3  220 Hz
-                    open_note("D", -7.0, 4), // D4  ~293.7 Hz
+                    open_note("C", -33.0, 2), // C2  ~65.4 Hz
+                    open_note("G", -26.0, 2), // G2  ~98 Hz
+                    open_note("C", -21.0, 3), // C3  ~130.8 Hz
+                    open_note("F", -16.0, 3), // F3  ~174.6 Hz
+                    open_note("A", -12.0, 3), // A3  220 Hz
+                    open_note("D", -7.0, 4),  // D4  ~293.7 Hz
                 ],
             },
         ]
