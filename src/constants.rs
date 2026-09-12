@@ -9,7 +9,7 @@ pub const FONT_SIZE: f32 = 22.0;
 pub const RECT_SIZE: f32 = 30.0;
 pub const GUITAR_OUTLINE_COLOR: Color = Color::srgba(0.15, 0.15, 0.15, 1.0);
 
-/// One color per natural note, matching `NOTE_NAMES` order (A … G).
+/// One color per natural note, matching `NoteName::ALL` order (A … G).
 pub const COLORS: [Color; 7] = [
     Color::srgba(1.0, 0.0, 0.0, 1.0), // A
     Color::srgba(1.0, 0.5, 0.0, 1.0), // B

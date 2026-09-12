@@ -1,44 +1,42 @@
 use guitar_notes::music::{
-    NotePlacement, detect_power_chord, format_note_lines, guitar_string_number,
-    note_name_for_pitch_class, pitch_class,
+    NoteName, NotePlacement, detect_power_chord, format_note_lines, guitar_string_number,
+    note_name_for_pitch_class,
 };
 
 #[test]
 fn pitch_class_natural_notes() {
-    assert_eq!(pitch_class("A"), 0);
-    assert_eq!(pitch_class("E"), 7);
-    assert_eq!(pitch_class("G"), 10);
+    assert_eq!(NoteName::E.pitch_class(), 7);
+    assert_eq!(NoteName::G.pitch_class(), 10);
 }
 
 #[test]
 fn pitch_class_roundtrip() {
-    for &(name, pc) in guitar_notes::music::NATURAL_PITCH_CLASSES.iter() {
-        assert_eq!(pitch_class(name), pc);
-        assert_eq!(note_name_for_pitch_class(pc), Some(name));
+    for &name in NoteName::ALL.iter() {
+        assert_eq!(note_name_for_pitch_class(name.pitch_class()), Some(name));
     }
 }
 
 #[test]
 fn detects_e_power_chord() {
-    let info = detect_power_chord(&["E", "B"]).unwrap();
+    let info = detect_power_chord(&[NoteName::E, NoteName::B]).unwrap();
     assert_eq!(info.title, "E5");
 }
 
 #[test]
 fn detects_a_power_chord() {
-    let info = detect_power_chord(&["A", "E"]).unwrap();
+    let info = detect_power_chord(&[NoteName::A, NoteName::E]).unwrap();
     assert_eq!(info.title, "A5");
 }
 
 #[test]
 fn detects_inverted_fifth_as_e_power_chord() {
-    let info = detect_power_chord(&["B", "E"]).unwrap();
+    let info = detect_power_chord(&[NoteName::B, NoteName::E]).unwrap();
     assert_eq!(info.title, "E5");
 }
 
 #[test]
 fn detects_power_chord_with_octave_doubling() {
-    let info = detect_power_chord(&["E", "B", "E"]).unwrap();
+    let info = detect_power_chord(&[NoteName::E, NoteName::B, NoteName::E]).unwrap();
     assert_eq!(info.title, "E5");
 }
 
@@ -49,12 +47,12 @@ fn rejects_empty_selection() {
 
 #[test]
 fn rejects_single_note() {
-    assert!(detect_power_chord(&["E"]).is_none());
+    assert!(detect_power_chord(&[NoteName::E]).is_none());
 }
 
 #[test]
 fn rejects_unrelated_interval() {
-    assert!(detect_power_chord(&["C", "E"]).is_none());
+    assert!(detect_power_chord(&[NoteName::C, NoteName::E]).is_none());
 }
 
 #[test]
@@ -67,14 +65,14 @@ fn guitar_string_number_convention() {
 fn format_note_lines_sorts_by_hz() {
     let mut entries = [
         NotePlacement {
-            name: "B",
+            name: NoteName::B,
             hz: 246.94,
             octave: 3,
             fret: 2,
             string_index: 1,
         },
         NotePlacement {
-            name: "E",
+            name: NoteName::E,
             hz: 82.41,
             octave: 2,
             fret: 2,

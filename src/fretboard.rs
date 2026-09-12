@@ -4,9 +4,7 @@ use crate::constants::{
     MAX_SELECTED_NOTES, OPEN_STRING_OFFSET_X, RECT_SIZE, SELECTED_NOTE_COLOR,
     SELECTED_NOTE_TEXT_COLOR, WORLD_HEIGHT, WORLD_WIDTH, chord_info_font_size, ui_font_size,
 };
-use crate::tuning::{
-    CurrentTuning, Note, Tuning, color_index_for_note, note_hz, tuning, tunings,
-};
+use crate::tuning::{CurrentTuning, Note, Tuning, color_index_for_note, note_hz, tuning, tunings};
 use crate::ui::{
     ChordInfoText, PowerChordPopup, TuningMenuLabel, TuningMenuPanel, TuningOption,
     spawn_chord_controls, spawn_power_chord_popup, spawn_tuning_dropdown,
@@ -15,7 +13,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::camera::ScalingMode;
 use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
-use guitar_notes::music::NOTE_NAMES;
+use guitar_notes::music::NoteName;
 
 #[derive(Resource)]
 pub struct FretboardLayout {
@@ -193,15 +191,15 @@ pub fn spawn_tuning_labels_and_notes(
 
         let mut semitones_from_a_4 = open.semitones_from_a_4;
         let mut octave = open.octave;
-        let mut note_ind = (color_index + 1) % NOTE_NAMES.len();
+        let mut note_ind = (color_index + 1) % NoteName::ALL.len();
         let mut x = line_start_x;
 
         loop {
-            let name = NOTE_NAMES[note_ind];
-            if name == "C" || name == "F" {
+            let name = NoteName::ALL[note_ind];
+            if name == NoteName::C || name == NoteName::F {
                 x += GAP;
                 semitones_from_a_4 += 1.0;
-                if name == "C" {
+                if name == NoteName::C {
                     octave += 1;
                 }
             } else {
@@ -235,7 +233,7 @@ pub fn spawn_tuning_labels_and_notes(
             );
 
             note_ind += 1;
-            if note_ind == NOTE_NAMES.len() {
+            if note_ind == NoteName::ALL.len() {
                 note_ind = 0;
             }
         }
@@ -270,7 +268,7 @@ fn spawn_clickable_note(
     }
     entity
         .with_child((
-            Text2d::new(note.name),
+            Text2d::new(note.name.as_str()),
             TextFont {
                 font_size: FontSize::Px(FONT_SIZE),
                 ..default()

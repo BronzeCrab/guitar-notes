@@ -7,7 +7,7 @@ use crate::ui::{
     SelectionPopupTitle,
 };
 use bevy::prelude::*;
-use guitar_notes::music::{NotePlacement, detect_power_chord, format_note_lines};
+use guitar_notes::music::{NoteName, NotePlacement, detect_power_chord, format_note_lines};
 
 fn note_placements(entries: &[(&Note, &FretPosition)]) -> Vec<NotePlacement> {
     entries
@@ -47,7 +47,7 @@ pub fn play_selected_notes(
             continue;
         }
 
-        let names: Vec<&str> = entries.iter().map(|(note, _)| note.name).collect();
+        let names: Vec<NoteName> = entries.iter().map(|(note, _)| note.name).collect();
         let mut placements = note_placements(&entries);
         let note_lines = format_note_lines(&mut placements);
         let (title, body) = if let Some(info) = detect_power_chord(&names) {
@@ -85,7 +85,7 @@ pub fn explain_selection(
         let message = if entries.is_empty() {
             "Select notes first, then press Explain.".to_string()
         } else {
-            let names: Vec<&str> = entries.iter().map(|(note, _)| note.name).collect();
+            let names: Vec<NoteName> = entries.iter().map(|(note, _)| note.name).collect();
             let mut placements = note_placements(&entries);
             let note_lines = format_note_lines(&mut placements);
             if let Some(info) = detect_power_chord(&names) {
