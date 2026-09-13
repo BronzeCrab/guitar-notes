@@ -51,6 +51,8 @@ fn main() {
             Update,
             (
                 ui::toggle_tuning_menu,
+                ui::scroll_page,
+                ui::drag_page_scrollbar,
                 fretboard::apply_tuning_selection,
                 fretboard::handle_note_click,
                 selection::play_selected_notes,
@@ -69,7 +71,10 @@ fn main() {
         )
         .add_systems(
             PostUpdate,
-            fretboard::layout_fretboard.before(UiSystems::Layout),
+            (
+                ui::update_page_scrollbar.after(UiSystems::Layout),
+                fretboard::layout_fretboard.before(UiSystems::Layout),
+            ),
         )
         .run();
 }

@@ -1,6 +1,8 @@
 use crate::constants::FONT_SIZE;
 use crate::sequence::spawn_selected_notes_panel;
 use crate::tuning::{tuning, tunings};
+use bevy::ecs::message::MessageReader;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -197,7 +199,9 @@ pub fn spawn_chord_controls(
     parent
         .spawn((
             Node {
+                flex_direction: FlexDirection::Column,
                 flex_shrink: 0.0,
+                align_self: AlignSelf::Center,
                 align_items: AlignItems::Center,
                 padding: UiRect::ZERO,
                 ..default()
@@ -212,6 +216,9 @@ pub fn spawn_chord_controls(
                     padding: UiRect::all(Val::Px(panel_padding)),
                     border: UiRect::all(Val::Px(1.0)),
                     row_gap: Val::Px(8.0),
+                    max_width: Val::Vw(90.0),
+                    flex_shrink: 0.0,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.08, 0.08, 0.1, 0.92)),
@@ -244,8 +251,8 @@ pub fn spawn_chord_controls(
                     TextColor(Color::srgb(0.85, 0.85, 0.9)),
                     ChordInfoText,
                     Node {
-                        width: Val::Percent(100.0),
-                        flex_shrink: 1.0,
+                        flex_direction: FlexDirection::Row,
+                        flex_shrink: 0.0,
                         ..default()
                     },
                 ));
@@ -314,6 +321,128 @@ pub fn dismiss_power_chord_popup(
         }
         for mut visibility in &mut popups {
             *visibility = Visibility::Hidden;
+        }
+    }
+}
+
+/// Marker for the vertical scroll container wrapping the whole page.
+#[derive(Component)]
+pub struct PageScroll;
+
+/// Marker for the scrollbar track (right edge of the page).
+#[derive(Component)]
+pub struct PageScrollTrack;
+
+/// Marker for the draggable scrollbar thumb.
+#[derive(Component)]
+pub struct PageScrollThumb;
+
+const SCROLL_LINES_PER_TICK: f32 = 48.0;
+const SCROLLBAR_THUMB_MIN_PX: f32 = 24.0;
+
+/// Scrolls the page with the mouse wheel while the cursor is over it.
+pub fn scroll_page(
+    mut wheel_messages: MessageReader<MouseWheel>,
+    mut pages: Query<(&Interaction, &mut ScrollPosition), With<PageScroll>>,
+) {
+    let total: f32 = wheel_messages.read().map(|event| event.y).sum();
+    if total == 0.0 {
+        return;
+    }
+    for (interaction, mut scroll) in &mut pages {
+        if *interaction == Interaction::Hovered {
+            scroll.y -= total * SCROLL_LINES_PER_TICK;
+        }
+    }
+}
+
+/// Sizes and offsets the scrollbar thumb to match the page's scroll position.
+/// Hides the thumb entirely when the content fits the page.
+#[allow(clippy::type_complexity)]
+pub fn update_page_scrollbar(
+    pages: Query<(&ComputedNode, &ScrollPosition), With<PageScroll>>,
+    mut tracks: Query<(&ComputedNode, &mut Visibility), With<PageScrollTrack>>,
+    mut thumbs: Query<
+        (&mut Node, &mut Visibility),
+        (With<PageScrollThumb>, Without<PageScrollTrack>),
+    >,
+) {
+    let Ok((page, scroll)) = pages.single() else {
+        return;
+    };
+    let max_scroll = (page.content_size.y - page.size.y).max(0.0);
+    let fits = max_scroll <= 0.0;
+
+    for (track, mut track_visibility) in &mut tracks {
+        let target = if fits {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
+        if *track_visibility != target {
+            *track_visibility = target;
+        }
+        if fits {
+            continue;
+        }
+        let gutter = track.size().y;
+        for (mut node, mut thumb_visibility) in &mut thumbs {
+            if *thumb_visibility != Visibility::Visible {
+                *thumb_visibility = Visibility::Visible;
+            }
+            let thumb_h = (gutter * page.size.y / page.content_size.y).max(SCROLLBAR_THUMB_MIN_PX);
+            let top = Val::Px(scroll.y / max_scroll * (gutter - thumb_h));
+            let height = Val::Px(thumb_h);
+            if node.top != top {
+                node.top = top;
+            }
+            if node.height != height {
+                node.height = height;
+            }
+        }
+    }
+}
+
+/// Drags the scrollbar thumb and jumps on track clicks.
+#[allow(clippy::type_complexity)]
+pub fn drag_page_scrollbar(
+    window: Single<&Window>,
+    mut pages: Query<(&ComputedNode, &mut ScrollPosition), With<PageScroll>>,
+    tracks: Query<
+        (&ComputedNode, &UiGlobalTransform, &Interaction),
+        (With<PageScrollTrack>, Without<PageScrollThumb>),
+    >,
+    thumbs: Query<Option<&Interaction>, With<PageScrollThumb>>,
+) {
+    let Some(cursor) = window.physical_cursor_position() else {
+        return;
+    };
+    let Ok((page, mut scroll)) = pages.single_mut() else {
+        return;
+    };
+    let max_scroll = (page.content_size.y - page.size.y).max(0.0);
+    if max_scroll <= 0.0 {
+        return;
+    }
+
+    let mut thumb_fraction: Option<f32> = None;
+    for (track_node, track_transform, track_interaction) in &tracks {
+        let Some(normalized) = track_node.normalize_point(*track_transform, cursor) else {
+            continue;
+        };
+        let fraction = (0.5 - normalized.y).clamp(0.0, 1.0);
+        let thumb_pressed = thumbs
+            .iter()
+            .any(|interaction| matches!(interaction, Some(Interaction::Pressed)));
+        if thumb_pressed || *track_interaction == Interaction::Pressed {
+            thumb_fraction = Some(fraction);
+        }
+    }
+
+    if let Some(fraction) = thumb_fraction {
+        let new_y = fraction * max_scroll;
+        if scroll.y != new_y {
+            scroll.y = new_y;
         }
     }
 }

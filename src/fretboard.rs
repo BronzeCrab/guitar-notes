@@ -9,10 +9,12 @@ use crate::sequence::{
 };
 use crate::tuning::{CurrentTuning, Note, Tuning, color_index_for_note, note_hz, tuning, tunings};
 use crate::ui::{
-    ChordInfoText, PowerChordPopup, TuningMenuLabel, TuningMenuPanel, TuningOption,
-    spawn_chord_controls, spawn_power_chord_popup, spawn_tuning_dropdown,
+    ChordInfoText, PageScroll, PageScrollThumb, PageScrollTrack, PowerChordPopup, TuningMenuLabel,
+    TuningMenuPanel, TuningOption, spawn_chord_controls, spawn_power_chord_popup,
+    spawn_tuning_dropdown,
 };
 use bevy::prelude::*;
+use bevy::ui::FocusPolicy;
 use guitar_notes::music::NoteName;
 
 #[derive(Component)]
@@ -38,11 +40,6 @@ pub struct SelectionRing;
 /// Semi-transparent cream overlay shown when a note is currently sounding.
 #[derive(Component)]
 pub struct PlayingTint;
-
-#[derive(Component)]
-pub struct NoteVisual {
-    pub color_index: usize,
-}
 
 /// Flex zone that holds the fretboard. Grows/shrinks with the bottom panel.
 #[derive(Component)]
@@ -92,12 +89,20 @@ pub fn setup(mut commands: Commands, window: Single<&Window>, current_tuning: Re
     spawn_power_chord_popup(&mut commands, ui_font);
 
     let ui_root = commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            ..default()
-        })
+        .spawn((
+            PageScroll,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                overflow: Overflow::scroll_y(),
+                scrollbar_width: 0.0,
+                ..default()
+            },
+            ScrollPosition::default(),
+            Interaction::default(),
+            FocusPolicy::Block,
+        ))
         .id();
 
     let zone_entity = commands
@@ -105,7 +110,8 @@ pub fn setup(mut commands: Commands, window: Single<&Window>, current_tuning: Re
             FretboardZone,
             Node {
                 flex_grow: 1.0,
-                flex_shrink: 1.0,
+                flex_shrink: 0.0,
+                min_height: Val::Vh(60.0),
                 overflow: Overflow::clip(),
                 ..default()
             },
@@ -132,6 +138,51 @@ pub fn setup(mut commands: Commands, window: Single<&Window>, current_tuning: Re
     commands
         .entity(ui_root)
         .with_children(|root| spawn_chord_controls(root, ui_font, ui_font - 2.0));
+
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            ZIndex(200),
+            Pickable::IGNORE,
+        ))
+        .with_children(|overlay| {
+            overlay
+                .spawn((
+                    PageScrollTrack,
+                    Node {
+                        position_type: PositionType::Absolute,
+                        right: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        bottom: Val::Px(0.0),
+                        width: Val::Px(12.0),
+                        ..default()
+                    },
+                    Interaction::default(),
+                    FocusPolicy::Pass,
+                    Visibility::Hidden,
+                ))
+                .with_children(|track| {
+                    track.spawn((
+                        PageScrollThumb,
+                        Button,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            right: Val::Px(2.0),
+                            top: Val::Px(0.0),
+                            width: Val::Px(8.0),
+                            height: Val::Px(24.0),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.4)),
+                        Visibility::Hidden,
+                    ));
+                });
+        });
 }
 
 /// Thin horizontal string lines and vertical fret lines inside the fretboard.
@@ -247,7 +298,6 @@ fn spawn_clickable_note(
     let mut entity = parent.spawn((
         Button,
         FretNote,
-        NoteVisual { color_index },
         note.clone(),
         position,
         Node {

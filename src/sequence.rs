@@ -1,9 +1,7 @@
 use crate::audio::{NoteAudio, play_note_hz};
-use crate::constants::{
-    COLORS, NOTE_PLAY_DURATION_MS, SELECTED_NOTE_COLOR, SELECTED_NOTE_TEXT_COLOR,
-};
+use crate::constants::NOTE_PLAY_DURATION_MS;
 use crate::fretboard::{
-    FretNote, FretPosition, NoteVisual, PlayingTint, SelectedNote, SelectionRing, set_note_visual,
+    FretNote, FretPosition, PlayingTint, SelectedNote, SelectionRing, set_note_visual,
 };
 use crate::tuning::Note;
 use crate::ui::PlayButton;
@@ -195,6 +193,7 @@ pub fn spawn_selected_notes_panel(
                 row_gap: Val::Px(4.0),
                 padding: UiRect::all(Val::Px(8.0)),
                 border: UiRect::all(Val::Px(1.0)),
+                flex_shrink: 0.0,
                 ..default()
             },
             BackgroundColor(Color::srgba(0.14, 0.14, 0.18, 0.9)),
@@ -214,6 +213,7 @@ pub fn spawn_selected_notes_panel(
                 flex_wrap: FlexWrap::Wrap,
                 column_gap: Val::Px(6.0),
                 align_items: AlignItems::Center,
+                flex_shrink: 0.0,
                 ..default()
             },));
         });
@@ -519,18 +519,8 @@ pub fn refresh_chord_visuals(
     mode: Res<CurrentMode>,
     chord_selection: Res<ChordSelection>,
     mut chord_token: ResMut<ChordSelectionToken>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    notes: Query<
-        (
-            Entity,
-            &Note,
-            &NoteVisual,
-            &FretPosition,
-            &MeshMaterial2d<ColorMaterial>,
-            Option<&ChordMark>,
-        ),
-        With<FretNote>,
-    >,
+    notes: Query<(Entity, &Note, Option<&ChordMark>), With<FretNote>>,
+    positions: Query<(Entity, &FretPosition), With<FretNote>>,
     children_q: Query<&Children>,
     mut labels: Query<(&mut Text, &mut TextColor)>,
     mut rings: Query<&mut Visibility, (With<SelectionRing>, Without<PlayingTint>)>,
@@ -543,13 +533,10 @@ pub fn refresh_chord_visuals(
     chord_token.0 += 1;
     let token = chord_token.0;
 
-    for (entity, note, visual, _, material, mark) in &notes {
+    for (entity, note, mark) in &notes {
         if let Some(mark) = mark {
             if mark.token == token {
                 continue;
-            }
-            if let Some(mut mat) = materials.get_mut(material.id()) {
-                mat.color = COLORS[visual.color_index];
             }
             set_note_visual(
                 entity,
@@ -571,23 +558,25 @@ pub fn refresh_chord_visuals(
     }
 
     let mut by_position: HashMap<(u8, u8), Entity> = HashMap::new();
-    for (entity, _, _, position, _, _) in &notes {
+    for (entity, position) in &positions {
         by_position.insert((position.string_index, position.fret), entity);
     }
 
-    for (index, placement) in chord_selection.entries.iter().enumerate() {
+    for placement in chord_selection.entries.iter() {
         let Some(entity) = by_position.get(&(placement.string_index, placement.fret)) else {
             continue;
         };
-        if let Ok((_, _, _, _, material, _)) = notes.get(*entity) {
-            if let Some(mut mat) = materials.get_mut(material.id()) {
-                mat.color = SELECTED_NOTE_COLOR;
-            }
-        }
+        let Some(note_name) = notes
+            .get(*entity)
+            .ok()
+            .map(|(_, note, _)| note.name.as_str())
+        else {
+            continue;
+        };
         set_note_visual(
             *entity,
-            &(index + 1).to_string(),
-            SELECTED_NOTE_TEXT_COLOR,
+            note_name,
+            Color::WHITE,
             true,
             false,
             &children_q,
@@ -633,18 +622,8 @@ pub fn refresh_sequence_visuals(
     sequence: Res<Sequence>,
     mut sequence_token: ResMut<SequenceToken>,
     playback: Res<SequencePlayback>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    notes: Query<
-        (
-            Entity,
-            &Note,
-            &NoteVisual,
-            &FretPosition,
-            &MeshMaterial2d<ColorMaterial>,
-            Option<&SequenceMark>,
-        ),
-        With<FretNote>,
-    >,
+    notes: Query<(Entity, &Note, Option<&SequenceMark>), With<FretNote>>,
+    positions: Query<(Entity, &FretPosition), With<FretNote>>,
     children_q: Query<&Children>,
     mut labels: Query<(&mut Text, &mut TextColor)>,
     mut rings: Query<&mut Visibility, (With<SelectionRing>, Without<PlayingTint>)>,
@@ -657,13 +636,10 @@ pub fn refresh_sequence_visuals(
     sequence_token.0 += 1;
     let token = sequence_token.0;
 
-    for (entity, note, visual, _, material, mark) in &notes {
+    for (entity, note, mark) in &notes {
         if let Some(mark) = mark {
             if mark.token == token {
                 continue;
-            }
-            if let Some(mut mat) = materials.get_mut(material.id()) {
-                mat.color = COLORS[visual.color_index];
             }
             set_note_visual(
                 entity,
@@ -685,7 +661,7 @@ pub fn refresh_sequence_visuals(
     }
 
     let mut by_position: HashMap<(u8, u8), Entity> = HashMap::new();
-    for (entity, _, _, position, _, _) in &notes {
+    for (entity, position) in &positions {
         by_position.insert((position.string_index, position.fret), entity);
     }
 
@@ -694,15 +670,17 @@ pub fn refresh_sequence_visuals(
             continue;
         };
         let playing = playback.playing && playback.cursor == index;
-        if let Ok((_, _, _, _, material, _)) = notes.get(*entity) {
-            if let Some(mut mat) = materials.get_mut(material.id()) {
-                mat.color = SELECTED_NOTE_COLOR;
-            }
-        }
+        let Some(note_name) = notes
+            .get(*entity)
+            .ok()
+            .map(|(_, note, _)| note.name.as_str())
+        else {
+            continue;
+        };
         set_note_visual(
             *entity,
-            &(index + 1).to_string(),
-            SELECTED_NOTE_TEXT_COLOR,
+            note_name,
+            Color::WHITE,
             true,
             playing,
             &children_q,
