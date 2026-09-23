@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use bevy::ui::UiSystems;
 use bevy::window::WindowPlugin;
 use rodio::DeviceSinkBuilder;
+use rodio::mixer::mixer;
 use sequence::{
     ChordPlayback, ChordSelection, ChordSelectionToken, CurrentMode, SelectionCounter, Sequence,
     SequencePlayback, SequenceToken,
@@ -18,10 +19,22 @@ use sequence::{
 use tuning::CurrentTuning;
 
 fn main() {
-    let mut sink = DeviceSinkBuilder::open_default_sink().expect("open default audio stream");
-    sink.log_on_drop(false);
+    console_error_panic_hook::set_once();
+    let sink = match DeviceSinkBuilder::open_default_sink() {
+        Ok(mut s) => {
+            s.log_on_drop(false);
+            Some(s)
+        }
+        Err(e) => {
+            error!("open default audio stream failed: {e}; running without audio");
+            None
+        }
+    };
     let note_audio = NoteAudio {
-        mixer: sink.mixer().clone(),
+        mixer: sink
+            .as_ref()
+            .map(|s| s.mixer().clone())
+            .unwrap_or_else(|| mixer(2.try_into().unwrap(), 44100.try_into().unwrap()).0),
     };
 
     App::new()

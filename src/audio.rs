@@ -6,8 +6,9 @@ use rodio::source::{SineWave, Source};
 use std::time::Duration;
 
 /// Keeps the OS audio stream alive for the app lifetime (`cpal::Stream` is `!Send`).
+/// `None`, когда устройство недоступно (например, wasm без жеста пользователя).
 #[allow(dead_code)]
-pub struct AudioSinkKeepAlive(pub MixerDeviceSink);
+pub struct AudioSinkKeepAlive(pub Option<MixerDeviceSink>);
 
 #[derive(Resource, Clone)]
 pub struct NoteAudio {
