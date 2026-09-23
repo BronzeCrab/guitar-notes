@@ -202,7 +202,7 @@ fn spawn_fretboard_lines(parent: &mut ChildSpawnerCommands, num_strings: usize) 
             Pickable::IGNORE,
         ));
     }
-    for f in 0..=AMOUNT_OF_FRETS + 1 {
+    for f in 1..=AMOUNT_OF_FRETS + 1 {
         parent.spawn((
             FretLine { index: f },
             Node {
