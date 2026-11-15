@@ -6,6 +6,7 @@ use crate::fretboard::{
 use crate::tuning::Note;
 use crate::ui::PlayButton;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use guitar_notes::music::{NotePlacement, guitar_string_number};
 use std::collections::HashMap;
 
@@ -67,10 +68,7 @@ pub struct ChordModeButton;
 pub struct SequenceModeButton;
 
 #[derive(Component)]
-pub struct SelectedNotesPanel {
-    pub main: f32,
-    pub sub: f32,
-}
+pub struct SelectedNotesPanel;
 
 #[derive(Component)]
 pub struct SelectedNotesEntry {
@@ -120,7 +118,6 @@ fn spawn_mode_button(
     parent: &mut ChildSpawnerCommands,
     label: &str,
     marker: impl Bundle,
-    font_size: f32,
     active: bool,
 ) {
     let (bg, border) = if active {
@@ -130,13 +127,12 @@ fn spawn_mode_button(
     };
     parent
         .spawn((
-            Button,
             marker,
             Node {
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                padding: UiRect::axes(Val::Rem(0.6), Val::Rem(0.3)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                min_width: Val::Px(90.0),
+                min_height: Val::Px(34.0),
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
@@ -147,7 +143,7 @@ fn spawn_mode_button(
             btn.spawn((
                 Text::new(label),
                 TextFont {
-                    font_size: FontSize::Px(font_size),
+                    font_size: FontSize::Rem(1.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -155,43 +151,36 @@ fn spawn_mode_button(
         });
 }
 
-pub fn spawn_mode_buttons(commands: &mut Commands, font_size: f32) {
-    commands
+pub fn spawn_mode_buttons(parent: &mut ChildSpawnerCommands) {
+    parent
         .spawn((
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(16.0),
-                top: Val::Px(16.0),
                 flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(8.0),
+                flex_wrap: FlexWrap::Wrap,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(6.0),
+                flex_shrink: 0.0,
                 ..default()
             },
-            ZIndex(10),
+            ZIndex(20),
             Pickable::IGNORE,
         ))
         .with_children(|bar| {
-            spawn_mode_button(bar, "Chord", ChordModeButton, font_size, true);
-            spawn_mode_button(bar, "Sequence", SequenceModeButton, font_size, false);
+            spawn_mode_button(bar, "Chord", ChordModeButton, true);
+            spawn_mode_button(bar, "Sequence", SequenceModeButton, false);
         });
 }
 
 /// Selected-notes display placed inside the bottom panel, above the Play/Explain row.
 /// Shown as a distinct sub-block in both chord and sequence modes.
-pub fn spawn_selected_notes_panel(
-    parent: &mut ChildSpawnerCommands,
-    main_font_size: f32,
-    sub_font_size: f32,
-) {
+pub fn spawn_selected_notes_panel(parent: &mut ChildSpawnerCommands) {
     parent
         .spawn((
-            SelectedNotesPanel {
-                main: main_font_size,
-                sub: sub_font_size,
-            },
+            SelectedNotesPanel,
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(4.0),
-                padding: UiRect::all(Val::Px(8.0)),
+                row_gap: Val::Rem(0.15),
+                padding: UiRect::all(Val::Rem(0.35)),
                 border: UiRect::all(Val::Px(1.0)),
                 flex_shrink: 0.0,
                 ..default()
@@ -203,7 +192,7 @@ pub fn spawn_selected_notes_panel(
             panel.spawn((
                 Text::new("Selected Notes:"),
                 TextFont {
-                    font_size: FontSize::Px(main_font_size),
+                    font_size: FontSize::Rem(1.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.9)),
@@ -211,7 +200,7 @@ pub fn spawn_selected_notes_panel(
             panel.spawn((Node {
                 flex_direction: FlexDirection::Row,
                 flex_wrap: FlexWrap::Wrap,
-                column_gap: Val::Px(6.0),
+                column_gap: Val::Rem(0.3),
                 align_items: AlignItems::Center,
                 flex_shrink: 0.0,
                 ..default()
@@ -221,8 +210,8 @@ pub fn spawn_selected_notes_panel(
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn toggle_mode(
-    chord_clicks: Query<&Interaction, (Changed<Interaction>, With<ChordModeButton>)>,
-    sequence_clicks: Query<&Interaction, (Changed<Interaction>, With<SequenceModeButton>)>,
+    chord_clicks: Query<(), (Changed<Pressed>, With<ChordModeButton>)>,
+    sequence_clicks: Query<(), (Changed<Pressed>, With<SequenceModeButton>)>,
     mut current_mode: ResMut<CurrentMode>,
     mut sequence: ResMut<Sequence>,
     mut playback: ResMut<SequencePlayback>,
@@ -233,8 +222,8 @@ pub fn toggle_mode(
         Query<(&SequenceModeButton, &mut BackgroundColor, &mut BorderColor)>,
     )>,
 ) {
-    let want_chord = chord_clicks.iter().any(|i| *i == Interaction::Pressed);
-    let want_sequence = sequence_clicks.iter().any(|i| *i == Interaction::Pressed);
+    let want_chord = !chord_clicks.is_empty();
+    let want_sequence = !sequence_clicks.is_empty();
     if !want_chord && !want_sequence {
         return;
     }
@@ -360,7 +349,7 @@ pub fn update_selected_notes_panel(
             .collect()
     };
 
-    for (panel, font) in &panels {
+    for (panel, _) in &panels {
         if let Ok(children) = children_q.get(panel) {
             for child in children.iter() {
                 commands.entity(child).despawn();
@@ -371,7 +360,7 @@ pub fn update_selected_notes_panel(
             parent.spawn((
                 Text::new("Selected Notes:"),
                 TextFont {
-                    font_size: FontSize::Px(font.main),
+                    font_size: FontSize::Rem(1.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.9)),
@@ -386,7 +375,7 @@ pub fn update_selected_notes_panel(
                 parent.spawn((
                     Text::new(text),
                     TextFont {
-                        font_size: FontSize::Px(font.sub),
+                        font_size: FontSize::Rem(0.8),
                         ..default()
                     },
                     TextColor(Color::srgb(0.6, 0.6, 0.65)),
@@ -399,7 +388,7 @@ pub fn update_selected_notes_panel(
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     flex_wrap: FlexWrap::Wrap,
-                    column_gap: Val::Px(6.0),
+                    column_gap: Val::Rem(0.3),
                     align_items: AlignItems::Center,
                     ..default()
                 })
@@ -422,12 +411,11 @@ pub fn update_selected_notes_panel(
                             )
                         };
                         row.spawn((
-                            Button,
                             SelectedNotesEntry { index: *index },
                             Node {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Center,
-                                padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
+                                padding: UiRect::axes(Val::Rem(0.4), Val::Rem(0.2)),
                                 border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },
@@ -438,7 +426,7 @@ pub fn update_selected_notes_panel(
                             entry.spawn((
                                 Text::new(format!("{}. {}", index + 1, placement.name)),
                                 TextFont {
-                                    font_size: FontSize::Px(font.main),
+                                    font_size: FontSize::Rem(0.95),
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
@@ -450,7 +438,7 @@ pub fn update_selected_notes_panel(
                                     guitar_string_number(placement.string_index)
                                 )),
                                 TextFont {
-                                    font_size: FontSize::Px(font.sub),
+                                    font_size: FontSize::Rem(0.75),
                                     ..default()
                                 },
                                 TextColor(Color::srgb(0.7, 0.7, 0.75)),
@@ -460,7 +448,7 @@ pub fn update_selected_notes_panel(
                             row.spawn((
                                 Text::new(","),
                                 TextFont {
-                                    font_size: FontSize::Px(font.main),
+                                    font_size: FontSize::Rem(0.95),
                                     ..default()
                                 },
                                 TextColor(Color::srgb(0.7, 0.7, 0.75)),
@@ -474,7 +462,7 @@ pub fn update_selected_notes_panel(
 
 #[allow(clippy::type_complexity)]
 pub fn handle_selected_entry_click(
-    interactions: Query<(&Interaction, &SelectedNotesEntry), (Changed<Interaction>, With<Button>)>,
+    interactions: Query<&SelectedNotesEntry, Changed<Pressed>>,
     mut commands: Commands,
     mode: Res<CurrentMode>,
     mut sequence: ResMut<Sequence>,
@@ -482,10 +470,7 @@ pub fn handle_selected_entry_click(
     chord_selection: Res<ChordSelection>,
     chord_notes: Query<(Entity, &FretPosition), With<SelectedNote>>,
 ) {
-    for (interaction, entry) in &interactions {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
+    for entry in &interactions {
         if mode.0 == AppMode::Sequence {
             if entry.index < sequence.0.len() {
                 sequence.0.remove(entry.index);
@@ -700,19 +685,17 @@ pub fn sequence_playback(
     mut playback: ResMut<SequencePlayback>,
     sequence: Res<Sequence>,
     audio: Res<NoteAudio>,
-    play_clicks: Query<&Interaction, (Changed<Interaction>, With<PlayButton>)>,
+    play_clicks: Query<(), (Changed<Pressed>, With<PlayButton>)>,
 ) {
     if mode.0 != AppMode::Sequence {
         return;
     }
 
-    for interaction in &play_clicks {
-        if *interaction == Interaction::Pressed && !sequence.0.is_empty() {
-            playback.playing = true;
-            playback.cursor = 0;
-            playback.timer.reset();
-            play_note_hz(&audio, sequence.0[0].hz);
-        }
+    if !play_clicks.is_empty() && !sequence.0.is_empty() {
+        playback.playing = true;
+        playback.cursor = 0;
+        playback.timer.reset();
+        play_note_hz(&audio, sequence.0[0].hz);
     }
 
     if !playback.playing {

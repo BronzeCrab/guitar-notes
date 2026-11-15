@@ -7,7 +7,10 @@ mod tuning;
 mod ui;
 
 use audio::{AudioSinkKeepAlive, NoteAudio};
+use bevy::picking::events::{PointerCancel, PointerPress, PointerRelease};
+use bevy::picking::pointer::PointerButton;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use bevy::ui::UiSystems;
 use bevy::window::WindowPlugin;
 use rodio::DeviceSinkBuilder;
@@ -17,6 +20,26 @@ use sequence::{
     SequencePlayback, SequenceToken,
 };
 use tuning::CurrentTuning;
+
+/// Tracks primary-button presses on pickable UI entities via the `Pressed` marker,
+/// replacing the deprecated `Interaction` component.
+fn track_pointer_press(press: On<PointerPress>, mut commands: Commands) {
+    if press.button == PointerButton::Primary {
+        commands.entity(press.entity).insert(Pressed);
+    }
+}
+
+/// Removes the `Pressed` marker when the primary button is released.
+fn track_pointer_release(release: On<PointerRelease>, mut commands: Commands) {
+    if release.button == PointerButton::Primary {
+        commands.entity(release.entity).remove::<Pressed>();
+    }
+}
+
+/// Clears the `Pressed` marker when the pointer is canceled (e.g. window focus loss).
+fn cancel_pointer_press(cancel: On<PointerCancel>, mut commands: Commands) {
+    commands.entity(cancel.entity).remove::<Pressed>();
+}
 
 fn main() {
     console_error_panic_hook::set_once();
@@ -50,6 +73,7 @@ fn main() {
         .insert_resource(SelectionCounter::default())
         .insert_resource(ChordPlayback::default())
         .insert_resource(fretboard::FretboardLayoutState::default())
+        .insert_resource(ui::PageTouchScroll::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Guitar Notes".into(),
@@ -59,12 +83,17 @@ fn main() {
             }),
             ..default()
         }))
+        .add_observer(track_pointer_press)
+        .add_observer(track_pointer_release)
+        .add_observer(cancel_pointer_press)
         .add_systems(Startup, fretboard::setup)
         .add_systems(
             Update,
             (
+                ui::sync_rem_size,
                 ui::toggle_tuning_menu,
                 ui::scroll_page,
+                ui::touch_scroll_page,
                 ui::drag_page_scrollbar,
                 fretboard::apply_tuning_selection,
                 fretboard::handle_note_click,

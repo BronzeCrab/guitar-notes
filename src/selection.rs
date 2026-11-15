@@ -9,6 +9,7 @@ use crate::ui::{
     SelectionPopupTitle,
 };
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use guitar_notes::music::{NoteName, NotePlacement, detect_power_chord, format_note_lines};
 
 fn sequence_lines(sequence: &Sequence) -> String {
@@ -45,7 +46,7 @@ fn note_placements(entries: &[(&Note, &FretPosition)]) -> Vec<NotePlacement> {
 
 #[allow(clippy::type_complexity)]
 pub fn play_selected_notes(
-    interactions: Query<&Interaction, (Changed<Interaction>, With<PlayButton>)>,
+    presses: Query<(), (Changed<Pressed>, With<PlayButton>)>,
     selected: Query<(&Note, &FretPosition), With<SelectedNote>>,
     audio: Res<NoteAudio>,
     mut chord_playback: ResMut<ChordPlayback>,
@@ -59,11 +60,7 @@ pub fn play_selected_notes(
     if mode.0 == AppMode::Sequence {
         return;
     }
-    for interaction in &interactions {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
-
+    for () in &presses {
         let entries: Vec<(&Note, &FretPosition)> = selected.iter().collect();
         for (note, _) in &entries {
             play_note_hz(&audio, note.hz);
@@ -101,17 +98,13 @@ pub fn play_selected_notes(
 }
 
 pub fn explain_selection(
-    interactions: Query<&Interaction, (Changed<Interaction>, With<ExplainButton>)>,
+    presses: Query<(), (Changed<Pressed>, With<ExplainButton>)>,
     selected: Query<(&Note, &FretPosition), With<SelectedNote>>,
     mut info_texts: Query<&mut Text, With<ChordInfoText>>,
     mode: Res<CurrentMode>,
     sequence: Res<Sequence>,
 ) {
-    for interaction in &interactions {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
-
+    for () in &presses {
         let message = if mode.0 == AppMode::Sequence {
             if sequence.0.is_empty() {
                 "Sequence is empty. Click fretboard notes to add them in order.".to_string()
@@ -144,7 +137,7 @@ pub fn explain_selection(
 
 #[allow(clippy::too_many_arguments)]
 pub fn clear_selection(
-    interactions: Query<&Interaction, (Changed<Interaction>, With<ClearButton>)>,
+    presses: Query<(), (Changed<Pressed>, With<ClearButton>)>,
     mut commands: Commands,
     selected: Query<Entity, With<SelectedNote>>,
     mut info_texts: Query<&mut Text, With<ChordInfoText>>,
@@ -153,11 +146,7 @@ pub fn clear_selection(
     mut sequence: ResMut<Sequence>,
     mut playback: ResMut<SequencePlayback>,
 ) {
-    for interaction in &interactions {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
-
+    for () in &presses {
         if mode.0 == AppMode::Sequence {
             sequence.0.clear();
             playback.playing = false;

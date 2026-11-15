@@ -10,7 +10,7 @@ path = "src/lib.rs"
 [dependencies]
 # Минимальный набор фич bevy: UI + текст + 2D-рендер (Camera2d) + picking для Interaction.
 # Не используются: 3d/PBR, sprite, bevy_audio (звук через rodio), сцены, геймпады, clipboard, gizmos.
-bevy = { version = "0.19.1", default-features = false, features = [
+bevy = { version = "0.20.1", default-features = false, features = [
     "std",
     "async_executor",
     "bevy_asset",
@@ -33,12 +33,10 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "x11",
     "wayland",
 ] }
-rodio = { version = "0.22.2", default-features = false, features = ["playback"] }
-rand = { version = "0.10", default-features = false, features = ["std", "std_rng"] }
-wasm-bindgen = "0.2.128"
-wasm-bindgen-futures = "0.4.78"
+rodio = { version = "0.23.0", default-features = false, features = ["playback"] }
+wasm-bindgen = "0.2.130"
+wasm-bindgen-futures = "0.4.80"
 console_error_panic_hook = "0.1.7"
-wee_alloc = "0.4.5"
 
 # getrandom's wasm_js/js backends must NOT be enabled for native targets
 # (compile_error on Windows/Linux/macOS). Activate only for wasm builds.
@@ -50,7 +48,7 @@ getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 # rodio: на wasm включает cpal/wasm-bindgen (WebAudio backend), иначе cpal
 # компилируется в NullHost и открытие аудиоустройства падает.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-rodio = { version = "0.22.2", features = ["wasm-bindgen"] }
+rodio = { version = "0.23.0", features = ["wasm-bindgen"] }
 
 [[bin]]
 name = "guitar-notes"

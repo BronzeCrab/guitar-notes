@@ -1,9 +1,13 @@
-use crate::constants::FONT_SIZE;
-use crate::sequence::spawn_selected_notes_panel;
+use crate::sequence::{
+    ChordModeButton, SelectedNotesEntry, SequenceModeButton, spawn_selected_notes_panel,
+};
 use crate::tuning::{tuning, tunings};
 use bevy::ecs::message::MessageReader;
 use bevy::input::mouse::MouseWheel;
+use bevy::input::touch::Touches;
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 
 #[derive(Component)]
 pub struct PlayButton;
@@ -43,33 +47,40 @@ pub struct TuningOption {
     pub index: usize,
 }
 
-pub fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize, font_size: f32) {
-    let current_name: &'static str = tuning(current_index).name;
-    let menu_min_width = if font_size < FONT_SIZE { 120.0 } else { 140.0 };
+/// Keeps the root font size in sync with the window width. Every `rem` value
+/// in the UI (text and spacing) follows this, so the chrome stays proportional
+/// from a phone to a desktop.
+pub fn sync_rem_size(window: Single<&Window>, mut rem: ResMut<RemSize>) {
+    let viewport_min = window.width().min(window.height());
+    let target = crate::constants::rem_size_for_viewport(viewport_min);
+    if (rem.0 - target).abs() > 0.01 {
+        **rem = target;
+    }
+}
 
-    commands
+pub fn spawn_tuning_dropdown(parent: &mut ChildSpawnerCommands, current_index: usize) {
+    let current_name: &'static str = tuning(current_index).name;
+
+    parent
         .spawn((
             Node {
-                position_type: PositionType::Absolute,
-                right: Val::Px(16.0),
-                top: Val::Px(16.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(4.0),
+                align_items: AlignItems::FlexEnd,
+                flex_shrink: 0.0,
                 ..default()
             },
-            ZIndex(10),
+            GlobalZIndex(20),
             Pickable::IGNORE,
         ))
-        .with_children(|parent| {
-            parent
+        .with_children(|dropdown| {
+            dropdown
                 .spawn((
-                    Button,
                     TuningMenuButton,
                     Node {
-                        padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+                        padding: UiRect::axes(Val::Rem(0.6), Val::Rem(0.3)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        min_width: Val::Px(menu_min_width),
+                        min_height: Val::Px(34.0),
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
@@ -80,7 +91,7 @@ pub fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize, font
                     btn.spawn((
                         Text::new(format!("{current_name} v")),
                         TextFont {
-                            font_size: FontSize::Px(font_size),
+                            font_size: FontSize::Rem(1.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -88,28 +99,33 @@ pub fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize, font
                     ));
                 });
 
-            parent
+            // Absolute panel: the menu floats over the page without pushing it.
+            dropdown
                 .spawn((
                     TuningMenuPanel,
                     Node {
+                        position_type: PositionType::Absolute,
+                        top: Val::Percent(100.0),
+                        right: Val::Px(0.0),
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(2.0),
-                        min_width: Val::Px(menu_min_width),
+                        min_width: Val::Rem(7.0),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.2)),
+                    GlobalZIndex(30),
                     Visibility::Hidden,
                 ))
                 .with_children(|panel| {
                     for (index, preset) in tunings().iter().enumerate() {
                         panel
                             .spawn((
-                                Button,
                                 TuningOption { index },
                                 Node {
-                                    padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+                                    padding: UiRect::axes(Val::Rem(0.6), Val::Rem(0.4)),
                                     justify_content: JustifyContent::FlexStart,
                                     align_items: AlignItems::Center,
+                                    min_height: Val::Px(36.0),
                                     width: Val::Percent(100.0),
                                     ..default()
                                 },
@@ -119,7 +135,7 @@ pub fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize, font
                                 opt.spawn((
                                     Text::new(preset.name),
                                     TextFont {
-                                        font_size: FontSize::Px(font_size),
+                                        font_size: FontSize::Rem(1.0),
                                         ..default()
                                     },
                                     TextColor(Color::WHITE),
@@ -130,8 +146,7 @@ pub fn spawn_tuning_dropdown(commands: &mut Commands, current_index: usize, font
         });
 }
 
-pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
-    let body_font = if font_size < FONT_SIZE { 15.0 } else { 18.0 };
+pub fn spawn_power_chord_popup(commands: &mut Commands) {
     commands
         .spawn((
             PowerChordPopup,
@@ -146,7 +161,7 @@ pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
-            ZIndex(100),
+            GlobalZIndex(100),
             Visibility::Hidden,
         ))
         .with_children(|overlay| {
@@ -154,9 +169,9 @@ pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
                 .spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(12.0),
-                        padding: UiRect::all(Val::Px(20.0)),
-                        max_width: Val::Px(420.0),
+                        row_gap: Val::Rem(0.6),
+                        padding: UiRect::all(Val::Rem(1.0)),
+                        max_width: Val::Vw(92.0),
                         width: Val::Percent(92.0),
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
@@ -168,7 +183,7 @@ pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
                     panel.spawn((
                         Text::new(""),
                         TextFont {
-                            font_size: FontSize::Px(font_size),
+                            font_size: FontSize::Rem(1.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),
@@ -178,24 +193,19 @@ pub fn spawn_power_chord_popup(commands: &mut Commands, font_size: f32) {
                     panel.spawn((
                         Text::new(""),
                         TextFont {
-                            font_size: FontSize::Px(body_font),
+                            font_size: FontSize::Rem(0.8),
                             ..default()
                         },
                         TextColor(Color::srgb(0.85, 0.85, 0.9)),
                         PowerChordPopupText,
                     ));
 
-                    spawn_action_button(panel, "OK", DismissPowerChordPopup, font_size);
+                    spawn_action_button(panel, "OK", DismissPowerChordPopup);
                 });
         });
 }
 
-pub fn spawn_chord_controls(
-    parent: &mut ChildSpawnerCommands,
-    font_size: f32,
-    info_font_size: f32,
-) {
-    let panel_padding = if font_size < FONT_SIZE { 6.0 } else { 12.0 };
+pub fn spawn_chord_controls(parent: &mut ChildSpawnerCommands) {
     parent
         .spawn((
             Node {
@@ -213,10 +223,10 @@ pub fn spawn_chord_controls(
             bar.spawn((
                 Node {
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(Val::Px(panel_padding)),
+                    padding: UiRect::all(Val::Rem(0.35)),
                     border: UiRect::all(Val::Px(1.0)),
-                    row_gap: Val::Px(8.0),
-                    max_width: Val::Vw(90.0),
+                    row_gap: Val::Rem(0.3),
+                    max_width: Val::Vw(94.0),
                     flex_shrink: 0.0,
                     overflow: Overflow::clip(),
                     ..default()
@@ -225,27 +235,27 @@ pub fn spawn_chord_controls(
                 BorderColor::all(Color::srgb(0.45, 0.45, 0.5)),
             ))
             .with_children(|parent| {
-                spawn_selected_notes_panel(parent, font_size, info_font_size);
+                spawn_selected_notes_panel(parent);
 
                 parent
                     .spawn((Node {
                         flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(8.0),
+                        column_gap: Val::Rem(0.3),
                         flex_wrap: FlexWrap::Wrap,
                         flex_shrink: 0.0,
                         ..default()
                     },))
                     .with_children(|row| {
-                        spawn_action_button(row, "Play", PlayButton, font_size);
-                        spawn_action_button(row, "Explain", ExplainButton, font_size);
-                        spawn_action_button(row, "Clear", ClearButton, font_size);
+                        spawn_action_button(row, "Play", PlayButton);
+                        spawn_action_button(row, "Explain", ExplainButton);
+                        spawn_action_button(row, "Clear", ClearButton);
                     });
 
                 parent.spawn((
                     Text::new("Select up to 6 notes, then Play or Explain."),
                     TextLayout::linebreak(LineBreak::WordBoundary),
                     TextFont {
-                        font_size: FontSize::Px(info_font_size),
+                        font_size: FontSize::Rem(0.9),
                         ..default()
                     },
                     TextColor(Color::srgb(0.85, 0.85, 0.9)),
@@ -260,22 +270,15 @@ pub fn spawn_chord_controls(
         });
 }
 
-fn spawn_action_button(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    marker: impl Bundle,
-    font_size: f32,
-) {
-    let min_width = if font_size < FONT_SIZE { 60.0 } else { 72.0 };
+fn spawn_action_button(parent: &mut ChildSpawnerCommands, label: &str, marker: impl Bundle) {
     parent
         .spawn((
-            Button,
             marker,
             Node {
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+                padding: UiRect::axes(Val::Rem(0.6), Val::Rem(0.3)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                min_width: Val::Px(min_width),
+                min_height: Val::Px(34.0),
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
@@ -286,7 +289,7 @@ fn spawn_action_button(
             btn.spawn((
                 Text::new(label),
                 TextFont {
-                    font_size: FontSize::Px(font_size),
+                    font_size: FontSize::Rem(1.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
@@ -295,13 +298,10 @@ fn spawn_action_button(
 }
 
 pub fn toggle_tuning_menu(
-    interactions: Query<&Interaction, (Changed<Interaction>, With<TuningMenuButton>)>,
+    presses: Query<(), (Changed<Pressed>, With<TuningMenuButton>)>,
     mut panels: Query<&mut Visibility, With<TuningMenuPanel>>,
 ) {
-    for interaction in &interactions {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
+    for () in &presses {
         for mut visibility in &mut panels {
             *visibility = match *visibility {
                 Visibility::Hidden => Visibility::Visible,
@@ -312,13 +312,10 @@ pub fn toggle_tuning_menu(
 }
 
 pub fn dismiss_power_chord_popup(
-    interactions: Query<&Interaction, (Changed<Interaction>, With<DismissPowerChordPopup>)>,
+    presses: Query<(), (Changed<Pressed>, With<DismissPowerChordPopup>)>,
     mut popups: Query<&mut Visibility, With<PowerChordPopup>>,
 ) {
-    for interaction in &interactions {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
+    for () in &presses {
         for mut visibility in &mut popups {
             *visibility = Visibility::Hidden;
         }
@@ -343,16 +340,82 @@ const SCROLLBAR_THUMB_MIN_PX: f32 = 24.0;
 /// Scrolls the page with the mouse wheel while the cursor is over it.
 pub fn scroll_page(
     mut wheel_messages: MessageReader<MouseWheel>,
-    mut pages: Query<(&Interaction, &mut ScrollPosition), With<PageScroll>>,
+    mut pages: Query<(&Hovered, &mut ScrollPosition), With<PageScroll>>,
 ) {
     let total: f32 = wheel_messages.read().map(|event| event.y).sum();
     if total == 0.0 {
         return;
     }
-    for (interaction, mut scroll) in &mut pages {
-        if *interaction == Interaction::Hovered {
+    for (hovered, mut scroll) in &mut pages {
+        if hovered.get() {
             scroll.y -= total * SCROLL_LINES_PER_TICK;
         }
+    }
+}
+
+/// Finger currently dragging the page on a touch screen.
+#[derive(Resource, Default)]
+pub struct PageTouchScroll {
+    finger: Option<u64>,
+    scrolling: bool,
+}
+
+/// Scrolls the page by dragging a finger over it. Gestures that start on a
+/// note, button or the scrollbar belong to that widget, so they are ignored.
+#[allow(clippy::type_complexity)]
+pub fn touch_scroll_page(
+    touches: Res<Touches>,
+    // Only real controls (notes, buttons, chips, scrollbar) block the gesture.
+    // Plain layout nodes are pressed by any touch and must not count.
+    pressed: Query<
+        (),
+        (
+            With<Pressed>,
+            Or<(
+                With<crate::fretboard::FretNote>,
+                With<PlayButton>,
+                With<ExplainButton>,
+                With<ClearButton>,
+                With<TuningMenuButton>,
+                With<TuningOption>,
+                With<ChordModeButton>,
+                With<SequenceModeButton>,
+                With<SelectedNotesEntry>,
+                With<DismissPowerChordPopup>,
+                With<PageScrollTrack>,
+                With<PageScrollThumb>,
+            )>,
+        ),
+    >,
+    mut state: ResMut<PageTouchScroll>,
+    mut pages: Query<&mut ScrollPosition, With<PageScroll>>,
+) {
+    if state.finger.is_none()
+        && let Some(touch) = touches.iter_just_pressed().next()
+    {
+        state.finger = Some(touch.id());
+        state.scrolling = pressed.is_empty();
+    }
+
+    let Some(id) = state.finger else {
+        return;
+    };
+    let released = touches.just_released(id) || touches.just_canceled(id);
+
+    if state.scrolling
+        && let Some(touch) = touches.get_pressed(id)
+    {
+        let dy = touch.delta().y;
+        if dy != 0.0 {
+            for mut scroll in &mut pages {
+                scroll.y -= dy;
+            }
+        }
+    }
+
+    if released {
+        state.finger = None;
+        state.scrolling = false;
     }
 }
 
@@ -409,10 +472,10 @@ pub fn drag_page_scrollbar(
     window: Single<&Window>,
     mut pages: Query<(&ComputedNode, &mut ScrollPosition), With<PageScroll>>,
     tracks: Query<
-        (&ComputedNode, &UiGlobalTransform, &Interaction),
+        (&ComputedNode, &UiGlobalTransform, Has<Pressed>),
         (With<PageScrollTrack>, Without<PageScrollThumb>),
     >,
-    thumbs: Query<Option<&Interaction>, With<PageScrollThumb>>,
+    thumbs: Query<Has<Pressed>, With<PageScrollThumb>>,
 ) {
     let Some(cursor) = window.physical_cursor_position() else {
         return;
@@ -426,15 +489,13 @@ pub fn drag_page_scrollbar(
     }
 
     let mut thumb_fraction: Option<f32> = None;
-    for (track_node, track_transform, track_interaction) in &tracks {
+    for (track_node, track_transform, track_pressed) in &tracks {
         let Some(normalized) = track_node.normalize_point(*track_transform, cursor) else {
             continue;
         };
         let fraction = (0.5 - normalized.y).clamp(0.0, 1.0);
-        let thumb_pressed = thumbs
-            .iter()
-            .any(|interaction| matches!(interaction, Some(Interaction::Pressed)));
-        if thumb_pressed || *track_interaction == Interaction::Pressed {
+        let thumb_pressed = thumbs.iter().any(|pressed| pressed);
+        if thumb_pressed || track_pressed {
             thumb_fraction = Some(fraction);
         }
     }
