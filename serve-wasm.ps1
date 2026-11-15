@@ -34,22 +34,6 @@ if (-not $ServeOnly) {
 
     $wasmDir = "target/wasm32-unknown-unknown/wasm-release"
     $wasmIn = Join-Path $wasmDir "guitar-notes.wasm"
-    $wasmOpt = Join-Path $wasmDir "guitar-notes.opt.wasm"
-
-    if (-not $SkipOpt) {
-        if (Get-Command wasm-opt -ErrorAction SilentlyContinue) {
-            Write-Host "==> Optimizing WASM (wasm-opt -Oz)" -ForegroundColor Cyan
-            & wasm-opt -Oz --output $wasmOpt $wasmIn
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            Move-Item -Force $wasmOpt $wasmIn
-        }
-        else {
-            Write-Host "wasm-opt not found; skipping optimize (pass -SkipOpt to silence this)." -ForegroundColor Yellow
-        }
-    }
-    else {
-        Write-Host "==> Skipping wasm-opt" -ForegroundColor Yellow
-    }
 
     Write-Host "==> wasm-bindgen -> www/" -ForegroundColor Cyan
     wasm-bindgen `
@@ -58,6 +42,26 @@ if (-not $ServeOnly) {
         --target web `
         $wasmIn
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    # wasm-opt must run on the bindgen output: optimizing the raw Rust wasm
+    # with -Oz first corrupts the function table for wasm-bindgen >= 0.2.130.
+    $wasmOut = Join-Path "www" "guitar_notes_bg.wasm"
+    $wasmOpt = Join-Path "www" "guitar_notes_bg.opt.wasm"
+
+    if (-not $SkipOpt) {
+        if (Get-Command wasm-opt -ErrorAction SilentlyContinue) {
+            Write-Host "==> Optimizing WASM (wasm-opt -Oz)" -ForegroundColor Cyan
+            & wasm-opt -Oz --output $wasmOpt $wasmOut
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Move-Item -Force $wasmOpt $wasmOut
+        }
+        else {
+            Write-Host "wasm-opt not found; skipping optimize (pass -SkipOpt to silence this)." -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "==> Skipping wasm-opt" -ForegroundColor Yellow
+    }
 
     New-Item -ItemType File -Force -Path "www/.nojekyll" | Out-Null
     Write-Host "==> Build done" -ForegroundColor Green

@@ -59,14 +59,6 @@ jobs:
           RUSTFLAGS: --cfg getrandom_backend="wasm_js"
         run: cargo build --profile wasm-release --target wasm32-unknown-unknown
 
-      - name: Optimize WASM
-        run: |
-          wasm-opt -Oz \
-            --output target/wasm32-unknown-unknown/wasm-release/guitar-notes.opt.wasm \
-            target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
-          mv target/wasm32-unknown-unknown/wasm-release/guitar-notes.opt.wasm \
-             target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
-
       - name: Bindgen
         run: |
           wasm-bindgen \
@@ -74,6 +66,15 @@ jobs:
             --out-dir www \
             --target web \
             target/wasm32-unknown-unknown/wasm-release/guitar-notes.wasm
+
+      # wasm-opt must run on the bindgen output: optimizing the raw Rust wasm
+      # with -Oz first corrupts the function table for wasm-bindgen >= 0.2.130.
+      - name: Optimize WASM
+        run: |
+          wasm-opt -Oz \
+            --output www/guitar_notes_bg.opt.wasm \
+            www/guitar_notes_bg.wasm
+          mv www/guitar_notes_bg.opt.wasm www/guitar_notes_bg.wasm
 
       - name: Prepare www
         run: |
